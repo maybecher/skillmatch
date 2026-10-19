@@ -495,7 +495,7 @@ function slidesResultado(r) {
     }).join("")}</ol>` });
 
   const nFotos = FOTOS[r[0].k]?.fotos.length || 0;
-  slides.push({ id: "revela", dur: nFotos ? Math.round((CARROSSEL.inicio + nFotos * CARROSSEL.porFoto) * 1000) : 7500, tema: 0, seed: 63, classe: "revelacao", corpo: `
+  slides.push({ id: "revela", dur: nFotos ? Math.round((CARROSSEL.inicio + CARROSSEL.voltas * nFotos * CARROSSEL.porFoto) * 1000) : 7500, tema: 0, seed: 63, classe: "revelacao", corpo: `
     <p class="medio sobe" style="--d:.1s">E a sua modalidade nº 1 é…</p>
     <div class="revela">
       <span class="kicker">Ocupação ${top.codigo}</span>
@@ -525,20 +525,22 @@ function slidesResultado(r) {
 }
 
 /* Foto oficial da WorldSkills; se não carregar (sem internet), o bloco some sem deixar buraco. */
-/* Carrossel com as 3 fotos da modalidade, no tempo do story: a primeira aparece logo depois da revelação
-   e as outras entram em sequência até o fim do slide. A troca é feita por animações CSS, então pausar o story
-   (segurar o dedo) também pausa o carrossel. Sem internet, a foto que não carregar é retirada. */
-const CARROSSEL = { inicio: 2.4, porFoto: 2.7 };
+/* Carrossel com as 3 fotos da modalidade, no tempo do story: começa logo depois da revelação e dá
+   "voltas" completas até o fim do slide. A troca é feita por animações CSS em ciclo (jogo.css espera 3 fotos),
+   então pausar o story (segurar o dedo) também pausa o carrossel. Sem internet, a foto que não carregar é retirada. */
+const CARROSSEL = { inicio: 2.4, porFoto: 1.35, voltas: 2 };
 function urlFoto([id, codigo], tam) { return `https://live.staticflickr.com/65535/${id}_${codigo}_${tam}.jpg`; }
 function fotoModalidade(k) {
   const f = FOTOS[k];
   if (!f || !f.fotos.length) return "";
   const nome = esc(MODALIDADES[k].nome), { inicio, porFoto } = CARROSSEL;
+  const ciclo = `--ciclo:${(porFoto * f.fotos.length).toFixed(2)}s`;
+  const atraso = j => `--t:${(inicio + j * porFoto).toFixed(2)}s`;
   const imgs = f.fotos.map((foto, j) => `
       <img src="${urlFoto(foto, "c")}" srcset="${urlFoto(foto, "c")} 800w, ${urlFoto(foto, "b")} 1024w" sizes="(max-width: 460px) 92vw, 420px"
-        style="--t:${(inicio + j * porFoto).toFixed(1)}s" alt="Foto ${j + 1} de ${f.fotos.length}: competidor na prova de ${nome} na WorldSkills 2026" onerror="fotoFalhou(this)">`).join("");
-  const pontos = f.fotos.map((_, j) => `<i style="--t:${(inicio + j * porFoto).toFixed(1)}s;--p:${porFoto}s"></i>`).join("");
-  return `<figure class="foto-ws">
+        style="${atraso(j)}" alt="Foto ${j + 1} de ${f.fotos.length}: competidor na prova de ${nome} na WorldSkills 2026" onerror="fotoFalhou(this)">`).join("");
+  const pontos = f.fotos.map((_, j) => `<i style="${atraso(j)}"></i>`).join("");
+  return `<figure class="foto-ws" style="${ciclo}">
     <div class="carrossel">${imgs}</div>
     <figcaption><span class="pontos" aria-hidden="true">${pontos}</span>
       <span>Fotos: <a href="https://www.flickr.com/photos/worldskills/albums/${f.album}/" target="_blank" rel="noopener">WorldSkills</a> · CC BY-NC-ND 4.0</span></figcaption>
