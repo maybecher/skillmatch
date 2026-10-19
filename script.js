@@ -609,7 +609,7 @@ function painelProva(m) {
     <h4>O que mais pesa na nota</h4>
     <ul class="pesos">${p.pesos.map(([nome, v]) => `<li><span>${esc(nome)}</span><b>${v}%</b><i style="--w:${Math.round(100 * v / maior)}%"></i></li>`).join("")}</ul>
     ${p.destaque ? `<p class="pp-destaque">${esc(p.destaque)}</p>` : ""}
-    ${m.procurar ? `<p class="pp-procurar">Quer saber mais? Procure <b>${esc(m.procurar)}</b> na escola.</p>` : ""}
+    ${m.procurar ? `<p class="pp-procurar">Quer saber mais? Procure ${esc(m.tratamento || "o/a professor/a")} <b>${esc(m.procurar)}</b> na escola.</p>` : ""}
     <a class="pp-link" href="${m.link}" target="_blank" rel="noopener">Documento completo da WorldSkills (em inglês)</a>
   </dialog>`;
 }

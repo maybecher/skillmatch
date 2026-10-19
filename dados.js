@@ -29,6 +29,8 @@ const CONFIG = {
           ou { tipo: "imagem", src: "fotos/mecatronica.jpg", legenda: "..." }
    prova: explicação da prova, mostrada no botão "Entenda a prova". pesos = [o que é avaliado, % da nota].
    procurar: pessoa da escola que o aluno pode procurar sobre a modalidade (null = não mostra).
+             A frase sai "Procure o/a professor/a {nome} na escola". Para outra forma, acrescente na modalidade
+             tratamento: "a professora" ou tratamento: "o professor".
    depoimento: ex-competidor da escola. Ex.: { nome: "Ana Souza", info: "WorldSkills 2024", texto: "...", foto: "fotos/ana.jpg" } */
 const MODALIDADES = {
   game: { nome: "3D Game Art", codigo: "#50", idade: "até 20 anos em 2028", idadeMax: 20, en: "3D Digital Game Art",
