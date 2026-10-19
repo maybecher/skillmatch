@@ -321,20 +321,23 @@ const TELAS = {
         <p class="kicker sobe">Antes de tudo</p>
         <h2 class="grande sobe" style="--d:.1s">Como te chamam?</h2>
         <form id="fNome" class="sobe" style="--d:.25s;display:grid;gap:18px">
-          <input class="entrada" id="nome" maxlength="24" autocomplete="given-name" placeholder="Seu primeiro nome" value="${esc(state.nome)}" aria-label="Seu primeiro nome">
-          <button class="cta" type="submit">Continuar</button>
+          <input class="entrada" id="nome" maxlength="24" autocomplete="given-name" placeholder="Seu primeiro nome" value="${esc(state.nome)}" aria-label="Seu primeiro nome" aria-describedby="avisoNome" required>
+          <p class="reacao" id="avisoNome" aria-live="polite"></p>
+          <button class="cta" type="submit" id="seguirNome" ${state.nome ? "" : "disabled"}>Continuar</button>
         </form>`,
-      rodape: `<button class="linkbtn" id="voltar">← Voltar</button><button class="linkbtn" id="pular">Pular</button>`,
+      rodape: `<button class="linkbtn" id="voltar">← Voltar</button>`,
       ligar() {
-        const inp = document.getElementById("nome");
+        // O nome é obrigatório: ele aparece no resultado e no card do story.
+        const inp = document.getElementById("nome"), seguir = document.getElementById("seguirNome"), aviso = document.getElementById("avisoNome");
         if (!matchMedia("(pointer: coarse)").matches) inp.focus();
+        inp.oninput = () => { seguir.disabled = !inp.value.trim(); aviso.textContent = ""; };
         document.getElementById("fNome").onsubmit = ev => {
           ev.preventDefault();
           const n = inp.value.trim().split(/\s+/)[0] || "";
-          state.nome = n && n[0].toUpperCase() + n.slice(1);
+          if (!n) { aviso.textContent = "Digite o seu primeiro nome para continuar."; inp.focus(); return; }
+          state.nome = n[0].toUpperCase() + n.slice(1);
           Som.passar(); state.tela = "idade"; render();
         };
-        document.getElementById("pular").onclick = () => { state.nome = ""; state.tela = "idade"; render(); };
         document.getElementById("voltar").onclick = () => { state.tela = "inicio"; render(); };
       }
     };
@@ -935,17 +938,9 @@ async function desenharCard(r) {
   brilho.addColorStop(0, "rgba(96,165,250,.32)"); brilho.addColorStop(1, "rgba(96,165,250,0)");
   x.fillStyle = brilho; x.fillRect(0, 0, W, H);
   if (padronagem) {
-    // Padronagem do rodapé em dourado: a imagem (azul) vira máscara e é preenchida com o degradê dourado.
-    const ph = 220, pw = Math.round(padronagem.width * ph / padronagem.height);
-    const faixa = document.createElement("canvas");
-    faixa.width = W + pw; faixa.height = ph;
-    const f = faixa.getContext("2d");
-    for (let px = 0; px < faixa.width; px += pw) f.drawImage(padronagem, px, 0, pw, ph);
-    f.globalCompositeOperation = "source-in";
-    const gf = f.createLinearGradient(0, 0, W, 0); gf.addColorStop(0, "#d4a017"); gf.addColorStop(1, "#f3c94d");
-    f.fillStyle = gf; f.fillRect(0, 0, faixa.width, ph);
-    x.globalAlpha = 0.8; // translúcido demais, o dourado sobre o azul fica cinza
-    x.drawImage(faixa, -40, H - ph);
+    const ph = 220, pw = padronagem.width * ph / padronagem.height;
+    x.globalAlpha = 0.6;
+    for (let px = -40; px < W; px += pw) x.drawImage(padronagem, px, H - ph, pw, ph);
     x.globalAlpha = 1;
   }
 
