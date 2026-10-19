@@ -935,14 +935,19 @@ async function desenharCard(r) {
   brilho.addColorStop(0, "rgba(96,165,250,.32)"); brilho.addColorStop(1, "rgba(96,165,250,0)");
   x.fillStyle = brilho; x.fillRect(0, 0, W, H);
   if (padronagem) {
-    const ph = 220, pw = padronagem.width * ph / padronagem.height;
-    x.globalAlpha = 0.6;
-    for (let px = -40; px < W; px += pw) x.drawImage(padronagem, px, H - ph, pw, ph);
+    // Padronagem do rodapé em dourado: a imagem (azul) vira máscara e é preenchida com o degradê dourado.
+    const ph = 220, pw = Math.round(padronagem.width * ph / padronagem.height);
+    const faixa = document.createElement("canvas");
+    faixa.width = W + pw; faixa.height = ph;
+    const f = faixa.getContext("2d");
+    for (let px = 0; px < faixa.width; px += pw) f.drawImage(padronagem, px, 0, pw, ph);
+    f.globalCompositeOperation = "source-in";
+    const gf = f.createLinearGradient(0, 0, W, 0); gf.addColorStop(0, "#d4a017"); gf.addColorStop(1, "#f3c94d");
+    f.fillStyle = gf; f.fillRect(0, 0, faixa.width, ph);
+    x.globalAlpha = 0.8; // translúcido demais, o dourado sobre o azul fica cinza
+    x.drawImage(faixa, -40, H - ph);
     x.globalAlpha = 1;
   }
-  estrela(x, 960, 1490, 46, OURO);
-  estrela(x, 1010, 1600, 26, "#d7111a");
-  estrela(x, 890, 1610, 18, "#d7111a");
 
   const M = 90, LW = W - 2 * M;
   x.textBaseline = "alphabetic";
@@ -956,7 +961,7 @@ async function desenharCard(r) {
 
   let y = 420;
   fonte(x, 700, 30, SANS); espaco(x, 5); x.fillStyle = OURO;
-  x.fillText(`MEU SKILLMATCH · ${CONFIG.evento.toUpperCase()}`, M, y); espaco(x, 0);
+  x.fillText("MEU SKILLMATCH · TEAM 1.01", M, y); espaco(x, 0);
 
   if (nome) {
     y += 120;
@@ -998,9 +1003,17 @@ async function desenharCard(r) {
   let yb = Math.min(Math.max(y + 110, 1540), 1580);
   ajustar(x, "E você? Descubra a sua", LW, 800, 56, 34, SANS);
   x.fillStyle = "#ffffff"; x.fillText("E você? Descubra a sua", M, yb);
+  const fimChamada = M + x.measureText("E você? Descubra a sua").width;
+  const yChamada = yb;
   yb += 60;
   const convite = `Faça o SkillMatch no ${CONFIG.escola.replace(/^Escola /, "")}`;
   ajustar(x, convite, LW, 400, 40, 26, SERIF); x.fillStyle = OURO; x.fillText(convite, M, yb);
+
+  // Estrelas só em espaço livre: a dourada à direita da chamada (na altura dela) e as vermelhas abaixo do convite,
+  // entre o texto e a padronagem. Assim não ficam por cima de nenhum texto, qualquer que seja o nome.
+  if (W - M - fimChamada >= 110) estrela(x, (fimChamada + 30 + W - M) / 2 + 10, yChamada - 20, 40, OURO);
+  estrela(x, W - M + 10, yb + 58, 20, "#d7111a");
+  estrela(x, W - M - 60, yb + 74, 14, "#d7111a");
 
   return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("toBlob")), "image/png"));
 }
