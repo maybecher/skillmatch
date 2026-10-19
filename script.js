@@ -531,7 +531,7 @@ function slideProva(m) {
 }
 
 /* ---------- Resumo final ---------- */
-/* Com o pré-preenchimento configurado, todas as sugestões vão marcadas
+/* Com o pré-preenchimento configurado, as modalidades recebidas vão marcadas
    (numa pergunta de caixas de seleção, o Google Forms aceita o mesmo campo repetido). */
 function linkInscricao(ms) {
   const p = CONFIG.formPrefill;
@@ -544,17 +544,15 @@ function linkInscricao(ms) {
     return u.toString();
   } catch (e) { return CONFIG.formUrl; }
 }
-/* O aluno pode se inscrever em mais de uma modalidade. Sugerimos até 3 dentro da idade:
-   a de maior afinidade e as seguintes com afinidade relevante (pelo menos 15% e 2 respostas). */
+/* Modalidades do match dentro da idade do aluno, da maior afinidade para a menor.
+   A primeira é a que vai marcada no formulário; o aluno inclui as outras que quiser. */
 function modalidadesInscricao(r) {
   const dentro = r.filter(x => elegivel(x.k) !== false);
-  if (!dentro.length) return [r[0]];
-  return [dentro[0], ...dentro.slice(1).filter(x => x.pct >= 15 && x.pts >= 2)].slice(0, 3);
+  return dentro.length ? dentro : [r[0]];
 }
-function listaNomes(nomes) { return nomes.length > 1 ? nomes.slice(0, -1).join(", ") + " e " + nomes[nomes.length - 1] : nomes[0]; }
 
 function slideResumo(r) {
-  const sug = modalidadesInscricao(r), ms = sug.map(x => MODALIDADES[x.k]);
+  const ms = [MODALIDADES[modalidadesInscricao(r)[0].k]];
   return `
     <p class="kicker sobe">Seu SkillMatch</p>
     <div class="resumo-grid">
@@ -568,9 +566,7 @@ function slideResumo(r) {
     <section class="sugestoes sobe" style="--d:.35s" aria-labelledby="tInsc">
       <h3 class="titulo-insc" id="tInsc">Gostou do resultado?</h3>
       <p class="medio">Se tiver interesse, inscreva-se nas modalidades do seu match que mais combinam com você. Pode ser mais de uma!</p>
-      <ol aria-label="Seu match">${sug.map((x, j) => `<li><span class="n">${j + 1}</span><span>${esc(MODALIDADES[x.k].nome)}</span><b>${x.pct}%</b></li>`).join("")}</ol>
       <a class="cta cta-2" href="${esc(linkInscricao(ms))}" target="_blank" rel="noopener">Quero me inscrever</a>
-      ${CONFIG.formPrefill?.url ? `<p class="mini">As modalidades do seu match já vão marcadas no formulário.</p>` : ""}
     </section>
     <details class="todas sobe" style="--d:.4s"><summary>Ver afinidade com todas as modalidades</summary>
       <ol>${r.map(x => `<li><span>${esc(MODALIDADES[x.k].nome)}${elegivel(x.k) === false ? " <em>(fora da idade)</em>" : ""}</span><b>${x.pct}%</b></li>`).join("")}</ol>

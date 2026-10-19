@@ -245,10 +245,6 @@ mark { background: var(--ac); color: var(--ac-ink); padding: 0 6px; border-radiu
 .sugestoes .medio { font-size: 16px; }
 .sugestoes .cta { align-self: stretch; margin-top: 4px; }
 .sugestoes { display: grid; gap: 10px; padding: 16px; border-radius: 16px; background: color-mix(in srgb, var(--base) 82%, var(--fg)); border: 1px solid color-mix(in srgb, var(--ac) 45%, transparent); }
-.sugestoes ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.sugestoes li { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center; font-weight: 700; font-size: 15px; }
-.sugestoes .n { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; background: var(--gradiente-dourado); color: var(--azul-escuro); }
-.sugestoes b { color: var(--ac); font-size: 14px; }
 .todas summary { cursor: pointer; font-weight: 700; font-size: 14px; }
 .todas ol { list-style: none; margin: 8px 0 0; padding: 0; }
 .todas li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; font-size: 14px; border-bottom: 1px solid color-mix(in srgb, var(--fg) 15%, transparent); }

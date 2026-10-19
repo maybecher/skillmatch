@@ -41,9 +41,7 @@ O nome do aluno **não** é enviado, só a modalidade, a idade em 2028 e as resp
 3. No link, ache os trechos `entry.123456=NOME` e `entry.987654=...`.
 4. No `dados.js`, preencha `formPrefill`: em `url`, coloque o começo do link até `viewform`; em `campoNome` e `campoModalidade`, coloque os `entry.…` correspondentes.
 
-O aluno pode se inscrever em mais de uma modalidade. No fim do jogo, ele vê até 3 sugestões dentro da idade: a de maior afinidade e as seguintes com pelo menos 15% de afinidade. Para que todas já venham marcadas, a pergunta de modalidade do formulário deve ser de **caixas de seleção**, com opções **exatamente** iguais aos nomes usados em `dados.js` (ex.: "Desenvolvimento de Aplicativos Móveis"). O aluno pode desmarcar ou incluir outras.
-
-Modalidades fora da idade do aluno não entram nas sugestões.
+O aluno pode se inscrever em mais de uma modalidade. No fim do jogo, aparece o convite "Gostou do resultado? Se tiver interesse, inscreva-se nas modalidades do seu match que mais combinam com você", com o botão de inscrição. O formulário chega com o nome e a modalidade nº 1 do aluno (dentro da idade) já marcados, e ele inclui as outras que quiser. Para isso, a pergunta de modalidade deve ser de **caixas de seleção**, com opções **exatamente** iguais aos nomes usados em `dados.js` (ex.: "Desenvolvimento de Aplicativos Móveis").
 
 ## Fotos, vídeos e depoimentos
 
