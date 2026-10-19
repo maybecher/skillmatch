@@ -5,6 +5,9 @@
 const CONFIG = {
   evento: "SP Skills 2028",
   anoEvento: 2028,                 // usado para calcular a idade do aluno na competição
+  // Anos de nascimento que podem competir. Quem nasceu depois ainda é novo demais; quem nasceu antes já passou da idade.
+  // Os dois grupos podem fazer o teste, mas o resultado não convida para a inscrição.
+  nascimento: { de: 2006, ate: 2012 },
   escola: "Escola SENAI Roberto Simonsen",
 
   // Link do formulário de inscrição (usado se o pré-preenchimento abaixo estiver vazio).

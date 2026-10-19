@@ -157,10 +157,20 @@ function precisaDesempate() {
   return a.taxa - b.taxa <= umaResposta + 1e-9;
 }
 
-function idadeNoEvento() { return state.nasc ? CONFIG.anoEvento - state.nasc : null; }
+/* state.nasc é o ano de nascimento (número), "depois" (nasceu depois do último ano aceito: ainda não pode competir)
+   ou "antes" (nasceu antes do primeiro ano aceito: já passou da idade). Ver CONFIG.nascimento. */
+function foraDaSeletiva() { return state.nasc === "depois" || state.nasc === "antes"; }
+function idadeNoEvento() { return typeof state.nasc === "number" ? CONFIG.anoEvento - state.nasc : null; }
 function elegivel(k) {
+  if (foraDaSeletiva()) return false;
   const idade = idadeNoEvento(), max = MODALIDADES[k].idadeMax;
   return idade == null || max == null ? null : idade <= max;
+}
+/* Mensagem para quem não pode competir pela idade (as duas opções permitem fazer o teste mesmo assim). */
+function mensagemForaDaSeletiva() {
+  return state.nasc === "depois"
+    ? "Ainda falta um tempo para você poder competir. Mas já pode fazer o teste e descobrir o seu perfil!"
+    : "Pela idade, você não pode mais competir nesta seletiva. Mas pode fazer o teste e descobrir o seu perfil!";
 }
 function primeiroNome() { return state.nome.trim(); }
 function virgulaNome(antes = "") { return primeiroNome() ? `${antes}, ${esc(primeiroNome())}` : antes; }
@@ -208,7 +218,8 @@ function registrarResultado(r) {
   registrar({
     id: state.id, data: new Date().toISOString(),
     modalidade: r[0].k, segunda: r[1].k, afinidade: r[0].pct,
-    idade: idade ?? "", elegivel: e == null ? "" : e ? "sim" : "nao",
+    idade: idade ?? (state.nasc === "depois" ? `menos de ${CONFIG.anoEvento - CONFIG.nascimento.ate}` : state.nasc === "antes" ? `mais de ${CONFIG.anoEvento - CONFIG.nascimento.de}` : ""),
+    elegivel: e == null ? "" : e ? "sim" : "nao",
     desempate: state.desempate || "", expectativa: state.expectativa || "", teste: MODO_TESTE ? "sim" : "",
     respostas: state.itens.map((it, j) => `${it.id}:${state.respostas[j] || ""}`).join(" "),
     feedback: ""
@@ -330,10 +341,13 @@ const TELAS = {
   },
 
   idade() {
-    const anos = []; for (let a = CONFIG.anoEvento - 12; a >= CONFIG.anoEvento - 26; a--) anos.push(a);
+    const { de, ate } = CONFIG.nascimento;
+    const anos = []; for (let a = ate; a >= de; a--) anos.push(a);
+    const opcoes = [["depois", `${ate + 1} ou depois`], ...anos.map(a => [a, String(a)]), ["antes", `Antes de ${de}`]];
     const idade = idadeNoEvento();
     let reacao = "";
-    if (idade != null) {
+    if (foraDaSeletiva()) reacao = mensagemForaDaSeletiva();
+    else if (idade != null) {
       const ok = KEYS.filter(k => elegivel(k) === true).length;
       reacao = ok
         ? `Em ${CONFIG.anoEvento} você terá <b>${idade} anos</b>. Dá pra competir em <b>${ok} das ${KEYS.length}</b> modalidades.`
@@ -345,15 +359,17 @@ const TELAS = {
         <p class="kicker sobe">${primeiroNome() ? `Prazer, ${esc(primeiroNome())}!` : "Prazer!"}</p>
         <h2 class="grande sobe" style="--d:.1s">Em que ano você nasceu?</h2>
         <p class="medio sobe" style="--d:.2s">A idade-limite elimina na competição, então a gente já confere pra você.</p>
-        <div class="chips sobe" style="--d:.3s">${anos.map(a => `<button class="chip${state.nasc === a ? " on" : ""}" data-a="${a}">${a}</button>`).join("")}</div>
+        <div class="chips sobe" style="--d:.3s">${opcoes.map(([v, rotulo]) => `<button class="chip${typeof v === "string" ? " chip-largo" : ""}${state.nasc === v ? " on" : ""}" data-a="${v}">${rotulo}</button>`).join("")}</div>
         <p class="reacao" aria-live="polite">${reacao}</p>
         <button class="cta" id="seguir" ${state.nasc ? "" : "hidden"}>Continuar</button>`,
-      rodape: `<button class="linkbtn" id="voltar">← Voltar</button><button class="linkbtn" id="pular">Prefiro não dizer</button>`,
+      rodape: `<button class="linkbtn" id="voltar">← Voltar</button>`,
       ligar() {
-        document.querySelectorAll(".chip").forEach(b => b.onclick = () => { state.nasc = Number(b.dataset.a); Som.escolha(); render(); });
-        const seguir = () => { Som.passar(); state.tela = MODO_TESTE ? "teste" : "quiz"; marcarInicioQuiz(); render(); };
-        document.getElementById("seguir").onclick = seguir;
-        document.getElementById("pular").onclick = () => { state.nasc = null; seguir(); };
+        document.querySelectorAll(".chip").forEach(b => b.onclick = () => {
+          const v = b.dataset.a;
+          state.nasc = /^\d+$/.test(v) ? Number(v) : v;
+          Som.escolha(); render();
+        });
+        document.getElementById("seguir").onclick = () => { Som.passar(); state.tela = MODO_TESTE ? "teste" : "quiz"; marcarInicioQuiz(); render(); };
         document.getElementById("voltar").onclick = () => { state.tela = "nome"; render(); };
       }
     };
@@ -625,6 +641,14 @@ function precarregarFoto(k) {
 }
 
 function slideIdade(r) {
+  if (state.nasc === "depois") return `
+    <p class="kicker sobe">Sobre a idade</p>
+    <h2 class="grande sobe" style="--d:.15s">A sua hora ainda vai chegar</h2>
+    <p class="medio sobe" style="--d:.6s">Pela idade, você ainda não pode competir na ${esc(CONFIG.evento)}. Guarde o seu resultado: ele já mostra um caminho para as próximas seletivas.</p>`;
+  if (state.nasc === "antes") return `
+    <p class="kicker sobe">Sobre a idade</p>
+    <h2 class="grande sobe" style="--d:.15s">Valeu por jogar!</h2>
+    <p class="medio sobe" style="--d:.6s">Pela idade, você não pode mais competir na ${esc(CONFIG.evento)}. Mas o seu perfil continua valendo para pensar em cursos e na carreira.</p>`;
   const k = r[0].k, m = MODALIDADES[k], idade = idadeNoEvento(), e = elegivel(k);
   if (idade == null || e === null) return `
     <p class="kicker sobe">Idade-limite</p>
@@ -726,11 +750,15 @@ function slideResumo(r) {
     </div>
     <section class="sugestoes sobe" style="--d:.35s" aria-labelledby="tInsc">
       <h3 class="titulo-insc" id="tInsc">Gostou do resultado?</h3>
-      <p class="medio">Se tiver interesse, inscreva-se nas modalidades do seu match que mais combinam com você. Pode ser mais de uma!</p>
-      <a class="cta cta-2" href="${esc(linkInscricao(ms))}" target="_blank" rel="noopener">Quero me inscrever</a>
+      ${foraDaSeletiva()
+        ? `<p class="medio">${state.nasc === "depois"
+            ? "Pela idade, você ainda não pode se inscrever nesta seletiva. Guarde o seu card e fique de olho nas próximas!"
+            : "Pela idade, você não pode se inscrever nesta seletiva, mas pode compartilhar o seu resultado com os amigos."}</p>`
+        : `<p class="medio">Se tiver interesse, inscreva-se nas modalidades do seu match que mais combinam com você. Pode ser mais de uma!</p>
+      <a class="cta cta-2" href="${esc(linkInscricao(ms))}" target="_blank" rel="noopener">Quero me inscrever</a>`}
     </section>
     <details class="todas sobe" style="--d:.4s"><summary>Ver afinidade com todas as modalidades</summary>
-      <ol>${r.map(x => `<li><span>${esc(MODALIDADES[x.k].nome)}${elegivel(x.k) === false ? " <em>(fora da idade)</em>" : ""}</span><b>${x.pct}%</b></li>`).join("")}</ol>
+      <ol>${r.map(x => `<li><span>${esc(MODALIDADES[x.k].nome)}${!foraDaSeletiva() && elegivel(x.k) === false ? " <em>(fora da idade)</em>" : ""}</span><b>${x.pct}%</b></li>`).join("")}</ol>
     </details>
     <div class="feedback sobe" style="--d:.5s" id="feedback">${blocoFeedback()}</div>
     <p class="toast" id="toast" role="status"></p>`;
