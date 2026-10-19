@@ -34,35 +34,70 @@ function novoId() { return Date.now().toString(36) + Math.random().toString(36).
 
 /* Monta as perguntas de um jogo. Há mais modalidades do que opções por pergunta, então cada pergunta
    mostra as modalidades que apareceram menos até ali (empates sorteados). Assim todas aparecem
-   praticamente o mesmo número de vezes. Os duelos são sorteados do banco pelo mesmo critério.
-   As perguntas ficam na ordem do arquivo; os duelos entram espalhados entre elas. */
+   praticamente o mesmo número de vezes. As perguntas ficam na ordem do arquivo; os duelos entram
+   espalhados entre elas e são escolhidos durante o jogo (ver escolherPar). */
 function montarItens() {
   const vezes = Object.fromEntries(KEYS.map(k => [k, 0]));
   const menosVistas = (ks, n) => embaralhar(ks).sort((a, b) => vezes[a] - vezes[b]).slice(0, n);
   const marcar = ks => ks.forEach(k => vezes[k]++);
 
-  const banco = embaralhar(DUELOS), duelos = [];
-  while (duelos.length < Math.min(DUELOS_POR_JOGO, banco.length)) {
-    const peso = d => Object.keys(d.o).reduce((s, k) => s + vezes[k], 0);
-    banco.sort((a, b) => peso(a) - peso(b));
-    const d = banco.shift();
-    duelos.push(d); marcar(Object.keys(d.o));
-  }
   const multipla = PERGUNTAS.map(p => {
     const ks = menosVistas(Object.keys(p.o), OPCOES_POR_PERGUNTA);
     marcar(ks);
     return { id: p.id, ordem: embaralhar(ks) };
   });
 
-  // Duelos espalhados ao longo do jogo (com 10 perguntas: depois da 2ª, 4ª, 6ª e 8ª).
-  // O último duelo fica reservado para a 15ª pergunta, que vira o desempate quando há empate (ver escolher()).
-  const comoItem = d => ({ id: d.id, ordem: embaralhar(Object.keys(d.o)) });
-  const final = duelos.pop();
-  const seq = [], passo = Math.max(1, Math.floor(multipla.length / (duelos.length + 1)));
-  multipla.forEach((it, j) => { seq.push(it); if ((j + 1) % passo === 0 && j < multipla.length - 1 && duelos.length) seq.push(comoItem(duelos.shift())); });
-  duelos.forEach(d => seq.push(comoItem(d)));
-  if (final) seq.push({ ...comoItem(final), final: true });
+  // Os duelos são "vagas" espalhadas no jogo (com 10 perguntas: depois da 3ª, 5ª, 7ª e 9ª), preenchidas na hora
+  // pelo prepararItem() de acordo com as respostas até ali. O 1º duelo só vem depois da 3ª pergunta, quando já dá
+  // para ver o perfil. A última vaga é a 15ª pergunta, que vira o desempate quando há empate (ver escolher()).
+  const vaga = () => ({ id: "duelo", ordem: [], vaga: true });
+  const nDuelos = DUELOS_POR_JOGO - 1, inicio = 3, passo = 2;
+  const seq = [];
+  let colocados = 0;
+  multipla.forEach((it, j) => { seq.push(it); if (j + 1 >= inicio && (j + 1 - inicio) % passo === 0 && j < multipla.length - 1 && colocados < nDuelos) { seq.push(vaga()); colocados++; } });
+  while (colocados++ < nDuelos) seq.push(vaga());
+  seq.push({ ...vaga(), final: true });
   return seq;
+}
+
+/* Duelos adaptativos: comparam sempre modalidades do perfil que está se formando, sem repetir pares.
+   - Se a líder ainda está ameaçada, o duelo é líder × vizinha mais próxima (decide o 1º lugar).
+   - Se a líder já está claramente na frente, o duelo é entre duas vizinhas dela (decide o 2º e o 3º).
+   Um duelo entre duas modalidades fora do perfil do aluno só daria pontos para uma delas sem motivo. */
+function escolherPar() {
+  const r = calcularBruto(false), lider = r[0];
+  const usados = new Set(state.itens.filter(it => it.par).map(it => it.par));
+  const chave = (a, b) => [a, b].sort().join("|");
+  const ligadas = (a, b) => relacao(a, b) >= PESO_RELACAO.ligacao;
+  const vizinhas = r.filter(x => x.k !== lider.k && ligadas(lider.k, x.k));
+  const contraLider = vizinhas.map(v => [lider.k, v.k]);
+  const entreVizinhas = [];
+  vizinhas.forEach((a, i) => vizinhas.slice(i + 1).forEach(b => { if (ligadas(a.k, b.k)) entreVizinhas.push([a.k, b.k]); }));
+  const umaResposta = 1 / Math.max(1, lider.vezes);
+  const folgada = lider.vezes > 0 && lider.taxa - (vizinhas[0]?.taxa ?? 0) > umaResposta;
+  // Se os pares diretos acabarem (modalidades com poucas vizinhas), usa vizinhas × vizinhas das vizinhas:
+  // continua na região do perfil e ajuda a definir o 2º e o 3º lugares.
+  const naRegiao = new Set(vizinhas.map(v => v.k));
+  const segundoGrau = [];
+  vizinhas.forEach(v => r.forEach(x => { if (x.k !== lider.k && x.k !== v.k && ligadas(v.k, x.k)) segundoGrau.push([v.k, x.k]); }));
+  const pares = folgada ? [...entreVizinhas, ...contraLider, ...segundoGrau] : [...contraLider, ...entreVizinhas, ...segundoGrau];
+  const par = pares.find(([a, b]) => !usados.has(chave(a, b)));
+  if (par) return par;
+  // Último recurso: um duelo do banco, de preferência com alguma modalidade da região do perfil.
+  const livres = embaralhar(DUELOS).filter(d => !usados.has(chave(...Object.keys(d.o))));
+  const livre = livres.find(d => Object.keys(d.o).some(k => k === lider.k || naRegiao.has(k))) || livres[0];
+  return livre ? Object.keys(livre.o) : null;
+}
+function prepararItem(j) {
+  const it = state.itens[j];
+  if (!it || !it.vaga) return;
+  const par = escolherPar();
+  if (!par) return;
+  const [a, b] = par;
+  const doBanco = DUELOS.find(d => d.o[a] && d.o[b]);
+  const id = doBanco ? doBanco.id : `g-${[a, b].sort().join("-")}`;
+  if (!ITENS[id]) ITENS[id] = { id, q: "Qual dessas você gostaria mais de fazer?", o: { [a]: ATIVIDADES[a], [b]: ATIVIDADES[b] }, duelo: true };
+  Object.assign(it, { id, ordem: embaralhar([a, b]), par: [a, b].sort().join("|"), vaga: false });
 }
 
 function novoJogo(tela = "inicio", perfil = {}) {
@@ -78,8 +113,9 @@ function novoJogo(tela = "inicio", perfil = {}) {
 function calcularBruto(comDesempate = true) {
   const pts = Object.fromEntries(KEYS.map(k => [k, 0])), vezes = { ...pts }, saldo = { ...pts };
   // Duelos e desempate não entram na proporção (num duelo a chance de ser escolhida é 50%, contra 12,5% numa
-  // pergunta de 8 opções, o que favoreceria quem aparece em mais duelos). Eles ajustam: +½ ponto para quem vence, −½ para quem perde.
-  const duelo = (ks, venc) => ks.forEach(k => { if (k in saldo) saldo[k] += k === venc ? 0.5 : -0.5; });
+  // pergunta de 8 opções). Eles só dão +½ ponto para quem vence. Quem perde não perde nada: como os duelos
+  // comparam modalidades vizinhas, tirar ponto de quem perde afastaria do topo justamente as mais relacionadas.
+  const duelo = (ks, venc) => { if (venc in saldo) saldo[venc] += 0.5; };
   state.itens.forEach((it, j) => {
     const resp = state.respostas[j];
     if (!resp) return;
@@ -340,6 +376,7 @@ const TELAS = {
   },
 
   quiz() {
+    prepararItem(state.i); // se for uma vaga de duelo, escolhe o par agora, com base nas respostas até aqui
     const n = state.itens.length, i = state.i, it = state.itens[i], p = ITENS[it.id], resta = n - i - 1;
     state.t0 = performance.now();
     const corpo = p.duelo

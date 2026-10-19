@@ -183,6 +183,7 @@ const LIGACOES = [
   ["movel", "prod"],   // criar objetos pensando em forma e uso
   ["marc", "cad"],     // desenho técnico e cálculo das peças
   ["quim", "i40"],     // controle de processos e dados
+  ["quim", "prod"],    // materiais, testes e sustentabilidade
   ["mecind", "ctrl"],  // manutenção e automação industrial
   ["web", "i40"],      // redes, sistemas e dados
   ["app", "prod"]      // pensar na experiência de quem usa
@@ -358,9 +359,10 @@ const PERGUNTAS = [
     quim:   "Investigar o que causou o problema" } }
 ];
 
-/* Perguntas "isso ou aquilo": separam perfis parecidos.
-   Este é um banco de duelos: a cada jogo são sorteados 5, dando prioridade às modalidades que apareceram menos.
-   Eles aparecem intercalados com as perguntas de múltipla escolha. Toda modalidade deve estar em pelo menos 2 duelos. */
+/* Perguntas "isso ou aquilo": separam perfis parecidos, sempre entre modalidades do mesmo grupo ou com ligação.
+   Os duelos são escolhidos durante o jogo: cada um compara a modalidade que está na frente com a concorrente mais
+   próxima do mesmo grupo. Se o par tiver um duelo neste banco, ele é usado; se não, o jogo usa a pergunta geral
+   "Qual dessas você gostaria mais de fazer?" com as frases de ATIVIDADES. */
 const DUELOS = [
   { id: "d1", q: "Num app de delivery, qual parte você ia gostar mais de fazer?", o: {
     app: "A tela em que a pessoa escolhe e pede com dois toques",
@@ -383,18 +385,12 @@ const DUELOS = [
   { id: "d7", q: "Num jogo de celular, você repara mais…", o: {
     app:  "Se os menus e botões são fáceis de usar",
     game: "No visual dos personagens e cenários" } },
-  { id: "d8", q: "Num projeto novo, você gosta mais de…", o: {
-    web:  "Programar a parte que faz tudo funcionar",
-    prod: "Desenhar um objeto pensando em quem vai usar" } },
   { id: "d9", q: "Com madeira, o que você prefere fazer?", o: {
     movel: "Um móvel com gavetas e acabamento perfeito",
     marc:  "Portas, janelas ou escadas" } },
   { id: "d10", q: "Uma peça de máquina quebrou. Você prefere…", o: {
     cad:    "Desenhar a peça nova no computador",
     mecind: "Trocar a peça e deixar a máquina rodando de novo" } },
-  { id: "d11", q: "Você prefere trabalhar com…", o: {
-    quim: "Substâncias e experimentos num laboratório",
-    elet: "Fios, quadros e tomadas numa obra" } },
   { id: "d12", q: "No projeto de um produto novo, você prefere…", o: {
     cad:  "Detalhar cada peça com medidas exatas",
     prod: "Criar o formato e pensar em como as pessoas vão usar" } },
@@ -404,9 +400,6 @@ const DUELOS = [
   { id: "d14", q: "Você prefere criar…", o: {
     movel: "Um móvel de verdade, feito à mão",
     prod:  "Um objeto que vai ser fabricado aos milhares" } },
-  { id: "d15", q: "Numa casa em construção, você ficaria com…", o: {
-    marc: "As portas, janelas e escadas de madeira",
-    elet: "Toda a parte elétrica" } },
   { id: "d16", q: "Você prefere acompanhar…", o: {
     quim: "Os resultados das análises de um laboratório",
     i40:  "Os dados de uma fábrica inteira numa tela" } },
@@ -417,4 +410,22 @@ const DUELOS = [
     game: "Criar um personagem",
     cad:  "Modelar uma peça para fabricar" } }
 ];
+
+/* Frase curta de cada modalidade, usada nos duelos gerais (quando o par não tem duelo próprio no banco). */
+const ATIVIDADES = {
+  game:   "Criar personagens e cenários para jogos",
+  app:    "Criar aplicativos que facilitam a vida das pessoas",
+  web:    "Programar sistemas que funcionam por trás das telas",
+  ctrl:   "Programar painéis que fazem máquinas funcionarem sozinhas",
+  elet:   "Fazer instalações elétricas seguras",
+  mec:    "Montar e programar máquinas automáticas",
+  i40:    "Conectar máquinas e usar dados para a fábrica render mais",
+  prod:   "Inventar produtos que vão ser fabricados",
+  mecind: "Montar e consertar máquinas industriais",
+  cad:    "Projetar peças no computador com medidas exatas",
+  movel:  "Fazer móveis com acabamento perfeito",
+  marc:   "Construir portas, janelas e escadas de madeira",
+  quim:   "Analisar amostras num laboratório"
+};
+
 /* ===================================================================== */
