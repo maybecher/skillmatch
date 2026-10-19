@@ -531,24 +531,34 @@ function slideProva(m) {
 }
 
 /* ---------- Resumo final ---------- */
-function linkInscricao(m) {
+/* Com o pré-preenchimento configurado, todas as sugestões vão marcadas
+   (numa pergunta de caixas de seleção, o Google Forms aceita o mesmo campo repetido). */
+function linkInscricao(ms) {
   const p = CONFIG.formPrefill;
   if (!p || !p.url) return CONFIG.formUrl;
   try {
     const u = new URL(p.url);
     u.searchParams.set("usp", "pp_url");
     if (p.campoNome && primeiroNome()) u.searchParams.set(p.campoNome, primeiroNome());
-    if (p.campoModalidade) u.searchParams.set(p.campoModalidade, m.nome);
+    if (p.campoModalidade) ms.forEach(m => u.searchParams.append(p.campoModalidade, m.nome));
     return u.toString();
   } catch (e) { return CONFIG.formUrl; }
 }
-function modalidadeInscricao(r) {
-  if (elegivel(r[0].k) !== false) return r[0].k;
-  return (r.find(x => elegivel(x.k) === true) || r[0]).k;
+/* O aluno pode se inscrever em mais de uma modalidade. Sugerimos até 3 dentro da idade:
+   a de maior afinidade e as seguintes com afinidade relevante (pelo menos 15% e 2 respostas). */
+function modalidadesInscricao(r) {
+  const dentro = r.filter(x => elegivel(x.k) !== false);
+  if (!dentro.length) return [r[0]];
+  return [dentro[0], ...dentro.slice(1).filter(x => x.pct >= 15 && x.pts >= 2)].slice(0, 3);
 }
+function listaNomes(nomes) { return nomes.length > 1 ? nomes.slice(0, -1).join(", ") + " e " + nomes[nomes.length - 1] : nomes[0]; }
 
 function slideResumo(r) {
-  const mInsc = MODALIDADES[modalidadeInscricao(r)];
+  const sug = modalidadesInscricao(r), ms = sug.map(x => MODALIDADES[x.k]);
+  const varias = ms.length > 1;
+  const nota = CONFIG.formPrefill?.url
+    ? (varias ? "As sugestões já vão marcadas. Você pode tirar ou incluir outras." : `Já vai com ${esc(ms[0].nome)} marcada. Você pode incluir outras.`)
+    : "Você pode marcar mais de uma modalidade na inscrição.";
   return `
     <p class="kicker sobe">Seu SkillMatch</p>
     <div class="resumo-grid">
@@ -556,10 +566,14 @@ function slideResumo(r) {
       <div class="resumo-acoes sobe" style="--d:.25s">
         <button class="cta" id="shareCard" disabled>Postar no story</button>
         <button class="botao" id="baixarCard" disabled>Baixar imagem</button>
-        <a class="cta cta-2" href="${esc(linkInscricao(mInsc))}" target="_blank" rel="noopener">Fazer minha inscrição</a>
-        <p class="mini">${CONFIG.formPrefill?.url ? `Já vai com ${esc(mInsc.nome)} preenchida.` : `Na inscrição, escolha ${esc(mInsc.nome)}.`}</p>
+        <a class="cta cta-2" href="${esc(linkInscricao(ms))}" target="_blank" rel="noopener">Fazer minha inscrição</a>
       </div>
     </div>
+    <section class="sugestoes sobe" style="--d:.35s" aria-label="Sugestões para a inscrição">
+      <p class="mini">Pelo seu perfil, vale se inscrever em:</p>
+      <ol>${sug.map((x, j) => `<li><span class="n">${j + 1}</span><span>${esc(MODALIDADES[x.k].nome)}</span><b>${x.pct}%</b></li>`).join("")}</ol>
+      <p class="mini">${nota}</p>
+    </section>
     <details class="todas sobe" style="--d:.4s"><summary>Ver afinidade com todas as modalidades</summary>
       <ol>${r.map(x => `<li><span>${esc(MODALIDADES[x.k].nome)}${elegivel(x.k) === false ? " <em>(fora da idade)</em>" : ""}</span><b>${x.pct}%</b></li>`).join("")}</ol>
     </details>
