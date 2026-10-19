@@ -29,8 +29,7 @@ const CONFIG = {
           ou { tipo: "imagem", src: "fotos/mecatronica.jpg", legenda: "..." }
    prova: explicação da prova, mostrada no botão "Entenda a prova". pesos = [o que é avaliado, % da nota].
    procurar: pessoa da escola que o aluno pode procurar sobre a modalidade (null = não mostra).
-             A frase sai "Procure o/a professor/a {nome} na escola". Para outra forma, acrescente na modalidade
-             tratamento: "a professora" ou tratamento: "o professor".
+             tratamento: "o professor" ou "a professora", usado na frase "Procure {tratamento} {nome} na escola".
    depoimento: ex-competidor da escola. Ex.: { nome: "Ana Souza", info: "WorldSkills 2024", texto: "...", foto: "fotos/ana.jpg" } */
 const MODALIDADES = {
   game: { nome: "3D Game Art", codigo: "#50", idade: "até 20 anos em 2028", idadeMax: 20, en: "3D Digital Game Art",
@@ -42,6 +41,7 @@ const MODALIDADES = {
       pesos: [["Modelagem 3D", 25], ["Texturas", 18], ["Desenho do conceito em 2D", 15], ["Esqueleto e animação dos personagens", 12], ["Testes dentro do motor do jogo", 10]],
       destaque: "O desenho em 2D conta bastante: gostar de desenhar ajuda muito." },
     procurar: "Ana Beatriz Gondim",
+    tratamento: "a professora",
     midia: null, depoimento: null },
   app:  { nome: "Desenvolvimento de Aplicativos Móveis", codigo: "#08", idade: "até 20 anos em 2028", idadeMax: 20, en: "Mobile Applications Development",
     texto: "Você projeta e programa aplicativos para celular, da tela que o usuário toca até a comunicação com os dados. Cada detalhe de facilidade de uso conta pontos.",
@@ -52,6 +52,7 @@ const MODALIDADES = {
       pesos: [["Programar as funções do app", 30], ["Planejar as telas e a experiência de quem usa", 25]],
       destaque: "Você usa câmera, GPS e sensores do aparelho, conecta o app a servidores e bancos de dados, entende o que o cliente precisa e apresenta a solução para ele." },
     procurar: "Caroline Falcão",
+    tratamento: "a professora",
     midia: null, depoimento: null },
   web:  { nome: "Tech Web", codigo: "#17", idade: "até 20 anos em 2028", idadeMax: 20, en: "Web Technologies",
     texto: "Você constrói sites e sistemas web completos: a parte que o usuário vê, a parte que roda no servidor e o banco de dados, com tempo contado e um cliente para atender.",
@@ -62,6 +63,7 @@ const MODALIDADES = {
       pesos: [["Back-end, a parte que roda no servidor", 40], ["Visual", 25], ["Front-end", 25]],
       destaque: "O que mais pesa é a parte que o usuário não vê: o back-end, que faz o site funcionar por trás." },
     procurar: "Philipe Borges",
+    tratamento: "o professor",
     midia: null, depoimento: null },
   ctrl: { nome: "Controle Industrial", codigo: "#19", idade: "até 20 anos em 2028", idadeMax: 20, en: "Industrial Control",
     texto: "Você monta e programa painéis de comando que fazem motores e máquinas trabalharem na ordem certa, sozinhos e com segurança.",
@@ -92,6 +94,7 @@ const MODALIDADES = {
       pesos: [["Programar os controladores da máquina (CLP)", 20], ["Escrever o software de controle", 20], ["Montar o sistema", 15], ["Achar falhas", 15]],
       destaque: "A programação vale 40% da nota: não é só montar, é fazer a máquina pensar." },
     procurar: "Roger Garcia",
+    tratamento: "o professor",
     midia: null, depoimento: null },
   i40:  { nome: "Indústria 4.0", codigo: "#48", idade: "até 22 anos em 2028", idadeMax: 22, en: "Industry 4.0",
     texto: "Em equipe, você conecta máquinas, redes e dados para formar uma fábrica inteligente, que se monitora e mostra tudo o que está acontecendo.",
@@ -102,6 +105,7 @@ const MODALIDADES = {
       pesos: [["Programar e trabalhar com dados", 20], ["Redes com segurança contra ataques digitais", 20], ["Projetar, montar e colocar o sistema para funcionar", 15], ["Otimizar a produção", 15]],
       destaque: null },
     procurar: "Caio de Paula",
+    tratamento: "o professor",
     midia: null, depoimento: null },
   prod: { nome: "Tecnologia em Design Industrial", codigo: "#59", idade: "até 22 anos em 2028", idadeMax: 22, en: "Industrial Design Technology",
     texto: "Você cria produtos do dia a dia, do primeiro esboço ao modelo 3D e ao protótipo, pensando em formato, uso, conforto e em como ele vai ser fabricado.",
@@ -112,6 +116,7 @@ const MODALIDADES = {
       pesos: [["Esboços e modelagem 3D", 25], ["Desenvolvimento técnico, com custos, materiais e normas", 25], ["Protótipo e testes", 15], ["Pesquisa com usuários e apresentação do produto, até a embalagem", 10]],
       destaque: "A sustentabilidade aparece em quase todas as partes da prova." },
     procurar: "Carlos Yoshio",
+    tratamento: "o professor",
     midia: null, depoimento: null },
   mecind: { nome: "Mecânica Industrial", codigo: "#01", idade: "até 20 anos em 2028", idadeMax: 20, en: "Industrial Mechanics",
     texto: "Você monta, alinha e faz a manutenção de máquinas industriais: lê desenhos, ajusta peças com precisão e coloca para rodar sistemas mecânicos, hidráulicos e pneumáticos.",
@@ -122,6 +127,7 @@ const MODALIDADES = {
       pesos: [["Instalação", 35], ["Resolver problemas, testar e entregar a máquina funcionando", 15], ["Manutenção e reparo", 15]],
       destaque: "Também tem solda MIG/MAG, rolamentos e transmissões, e até programas simples de CLP e inversor de frequência." },
     procurar: "Rodrigo Romero",
+    tratamento: "o professor",
     midia: null, depoimento: null },
   cad:  { nome: "Projeto de Engenharia Mecânica (CAD)", codigo: "#05", idade: "até 20 anos em 2028", idadeMax: 20, en: "Mechanical Engineering CAD",
     texto: "Você projeta peças e máquinas no computador: modela em 3D, monta os conjuntos, simula os movimentos e gera os desenhos técnicos com todas as medidas para a fabricação.",
@@ -132,6 +138,7 @@ const MODALIDADES = {
       pesos: [["Modelagem 3D", 30], ["Desenho técnico com medidas e tolerâncias", 30], ["Engenharia reversa", 15], ["Imagens realistas e animações", 10]],
       destaque: "Na engenharia reversa, você mede uma peça de verdade com instrumentos, esboça à mão e redesenha no computador." },
     procurar: "Emerson Agostinho",
+    tratamento: "o professor",
     midia: null, depoimento: null },
   movel: { nome: "Movelaria", codigo: "#24", idade: "até 20 anos em 2028", idadeMax: 20, en: "Cabinetmaking",
     texto: "Você fabrica móveis a partir de um projeto: lê o desenho, corta, faz encaixes, monta gavetas e portas que abrem e fecham perfeitas e capricha no acabamento.",
@@ -142,6 +149,7 @@ const MODALIDADES = {
       pesos: [["Escolher e preparar o material", 22], ["Fazer os encaixes e montar", 21], ["Trabalhar com desenhos", 15]],
       destaque: "Gavetas e portas precisam ficar com a mesma folga em todos os lados." },
     procurar: "Luiz Felipe",
+    tratamento: "o professor",
     midia: null, depoimento: null },
   marc: { nome: "Marcenaria de Estruturas", codigo: "#25", idade: "até 20 anos em 2028", idadeMax: 20, en: "Joinery",
     texto: "Você constrói peças de madeira para casas e prédios, como portas, janelas e escadas, com encaixes firmes e precisos feitos a partir de desenhos e cálculos.",
@@ -152,6 +160,7 @@ const MODALIDADES = {
       pesos: [["Encaixes, como o rabo de andorinha", 20], ["Qualidade do trabalho", 20], ["Montagem e instalação", 15]],
       destaque: "Não é só trabalho manual: também usa programas de desenho e de projeto de construção (CAD e BIM)." },
     procurar: "Gilson Oliveira",
+    tratamento: "o professor",
     midia: null, depoimento: null },
   quim: { nome: "Tecnologia Laboratorial Química", codigo: "#52", idade: "até 20 anos em 2028", idadeMax: 20, en: "Chemical Laboratory Technology",
     texto: "Você trabalha num laboratório analisando amostras: prepara soluções, faz análises químicas e com equipamentos, calcula os resultados e segue normas de qualidade e segurança à risca.",
@@ -162,6 +171,7 @@ const MODALIDADES = {
       pesos: [["Técnicas de laboratório, como titulação, destilação e cromatografia", 35], ["Interpretar e avaliar os resultados", 15], ["Máquinas de laboratório automatizadas", 10]],
       destaque: "Tem um lado bem tecnológico: 10% da nota é sobre máquinas de laboratório automatizadas." },
     procurar: "Sandra de Cassia",
+    tratamento: "a professora",
     midia: null, depoimento: null }
 };
 
