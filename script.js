@@ -555,24 +555,22 @@ function listaNomes(nomes) { return nomes.length > 1 ? nomes.slice(0, -1).join("
 
 function slideResumo(r) {
   const sug = modalidadesInscricao(r), ms = sug.map(x => MODALIDADES[x.k]);
-  const varias = ms.length > 1;
-  const nota = CONFIG.formPrefill?.url
-    ? (varias ? "As sugestões já vão marcadas. Você pode tirar ou incluir outras." : `Já vai com ${esc(ms[0].nome)} marcada. Você pode incluir outras.`)
-    : "Você pode marcar mais de uma modalidade na inscrição.";
   return `
     <p class="kicker sobe">Seu SkillMatch</p>
     <div class="resumo-grid">
       <div class="card-prev sobe" style="--d:.1s"><img id="cardPrev" alt="Seu card para o story"></div>
       <div class="resumo-acoes sobe" style="--d:.25s">
+        <p class="mini">Mostre seu match e desafie os colegas.</p>
         <button class="cta" id="shareCard" disabled>Postar no story</button>
         <button class="botao" id="baixarCard" disabled>Baixar imagem</button>
-        <a class="cta cta-2" href="${esc(linkInscricao(ms))}" target="_blank" rel="noopener">Fazer minha inscrição</a>
       </div>
     </div>
-    <section class="sugestoes sobe" style="--d:.35s" aria-label="Sugestões para a inscrição">
-      <p class="mini">Pelo seu perfil, vale se inscrever em:</p>
-      <ol>${sug.map((x, j) => `<li><span class="n">${j + 1}</span><span>${esc(MODALIDADES[x.k].nome)}</span><b>${x.pct}%</b></li>`).join("")}</ol>
-      <p class="mini">${nota}</p>
+    <section class="sugestoes sobe" style="--d:.35s" aria-labelledby="tInsc">
+      <h3 class="titulo-insc" id="tInsc">Gostou do resultado?</h3>
+      <p class="medio">Se tiver interesse, inscreva-se nas modalidades do seu match que mais combinam com você. Pode ser mais de uma!</p>
+      <ol aria-label="Seu match">${sug.map((x, j) => `<li><span class="n">${j + 1}</span><span>${esc(MODALIDADES[x.k].nome)}</span><b>${x.pct}%</b></li>`).join("")}</ol>
+      <a class="cta cta-2" href="${esc(linkInscricao(ms))}" target="_blank" rel="noopener">Quero me inscrever</a>
+      ${CONFIG.formPrefill?.url ? `<p class="mini">As modalidades do seu match já vão marcadas no formulário.</p>` : ""}
     </section>
     <details class="todas sobe" style="--d:.4s"><summary>Ver afinidade com todas as modalidades</summary>
       <ol>${r.map(x => `<li><span>${esc(MODALIDADES[x.k].nome)}${elegivel(x.k) === false ? " <em>(fora da idade)</em>" : ""}</span><b>${x.pct}%</b></li>`).join("")}</ol>
