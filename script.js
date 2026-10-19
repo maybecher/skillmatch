@@ -155,12 +155,21 @@ function render() {
       </span>
     </header>
     <div class="formas" aria-hidden="true">${formas(v.seed ?? v.tema)}</div>
-    <section class="conteudo" id="conteudo">${v.corpo}</section>
+    <section class="conteudo" id="conteudo"><div class="miolo">${v.corpo}</div></section>
     ${v.rodape ? `<footer class="rodape">${v.rodape}</footer>` : ""}`;
   document.getElementById("som").onclick = () => { Som.ligado = !Som.ligado; LS.set("skillmatch:som", Som.ligado); render(); Som.escolha(); };
+  const conteudo = document.getElementById("conteudo");
+  conteudo.addEventListener("scroll", indicarRolagem, { passive: true });
+  depois(700, indicarRolagem);
   ajustarTitulos();
   animarNumeros();
   v.ligar && v.ligar();
+}
+
+/* Em telas baixas, quando há conteúdo abaixo da dobra, esmaece a borda de baixo para indicar que dá para rolar. */
+function indicarRolagem() {
+  const c = document.getElementById("conteudo");
+  if (c) app.classList.toggle("tem-mais", c.scrollHeight - c.scrollTop - c.clientHeight > 6);
 }
 
 /* Diminui a fonte dos títulos com palavras longas até caberem na largura. */
@@ -815,5 +824,5 @@ async function desenharCard(r) {
 
 render();
 /* As fontes chegam depois do primeiro desenho; quando chegam, os títulos são reajustados. */
-document.fonts?.ready.then(ajustarTitulos);
-addEventListener("resize", ajustarTitulos);
+document.fonts?.ready.then(() => { ajustarTitulos(); indicarRolagem(); });
+addEventListener("resize", () => { ajustarTitulos(); indicarRolagem(); });
