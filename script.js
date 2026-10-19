@@ -516,7 +516,7 @@ function slidesResultado(r) {
 
   slides.push({ id: "idade", dur: 7000, tema: 4, seed: 65, corpo: slideIdade(r) });
 
-  slides.push({ id: "prova", dur: top.midia ? 0 : 8000, tema: 2, seed: 66, corpo: slideProva(top) });
+  slides.push({ id: "prova", dur: top.midia ? 0 : 8000, tema: 2, seed: 66, corpo: slideProva(top), ligar: ligarProva });
 
   slides.push({ id: "resumo", dur: 0, tema: 3, seed: 67, classe: "resumo", rodape: `<button class="linkbtn" id="rever">↺ Ver de novo</button><button class="linkbtn" id="again">Jogar de novo</button>`, corpo: slideResumo(r),
     ligar() { ligarResumo(r); } });
@@ -590,9 +590,38 @@ function slideProva(m) {
     ${midia ? `<div class="sobe" style="--d:.3s">${midia}</div>` : ""}
     ${dp ? `<blockquote class="depo sobe" style="--d:.5s">${dp.foto ? `<img src="${esc(dp.foto)}" alt="">` : ""}<div><p>“${esc(dp.texto)}”</p><footer><b>${esc(dp.nome)}</b>${dp.info ? " · " + esc(dp.info) : ""}</footer></div></blockquote>` : ""}
     <div class="acoes sobe" style="--d:.7s">
+      ${m.prova ? `<button class="botao botao-destaque" id="abrirProva" type="button" aria-haspopup="dialog">ⓘ Entenda a prova</button>` : ""}
       <a class="botao" href="${busca}" target="_blank" rel="noopener">▶ Ver vídeos da prova</a>
-      <a class="botao" href="${m.link}" target="_blank" rel="noopener">Padrão da WorldSkills</a>
-    </div>`;
+    </div>
+    ${painelProva(m)}`;
+}
+
+/* Painel "Entenda a prova": o que a modalidade faz, o que mais pesa na nota, um destaque e quem procurar na escola.
+   As barras mostram o peso de cada item em relação ao item de maior peso; o número ao lado é a % real da nota. */
+function painelProva(m) {
+  const p = m.prova;
+  if (!p) return "";
+  const maior = Math.max(...p.pesos.map(([, v]) => v));
+  return `<dialog class="painel-prova" id="painelProva" aria-labelledby="tProva">
+    <div class="pp-topo"><span class="kicker">Ocupação ${m.codigo}</span><button class="icone" id="fecharProva" type="button" aria-label="Fechar">✕</button></div>
+    <h3 id="tProva">${esc(m.nome)}</h3>
+    <p class="pp-texto">${esc(p.resumo)}</p>
+    <h4>O que mais pesa na nota</h4>
+    <ul class="pesos">${p.pesos.map(([nome, v]) => `<li><span>${esc(nome)}</span><b>${v}%</b><i style="--w:${Math.round(100 * v / maior)}%"></i></li>`).join("")}</ul>
+    ${p.destaque ? `<p class="pp-destaque">${esc(p.destaque)}</p>` : ""}
+    ${m.procurar ? `<p class="pp-procurar">Quer saber mais? Procure <b>${esc(m.procurar)}</b> na escola.</p>` : ""}
+    <a class="pp-link" href="${m.link}" target="_blank" rel="noopener">Documento completo da WorldSkills (em inglês)</a>
+  </dialog>`;
+}
+/* Abrir o painel pausa o story; fechar retoma (só se fomos nós que pausamos). */
+function ligarProva() {
+  const dlg = document.getElementById("painelProva"), abrir = document.getElementById("abrirProva");
+  if (!dlg || !abrir) return;
+  let pausei = false;
+  abrir.onclick = () => { pausei = !!Auto.timer; if (pausei) Auto.pausar(); dlg.showModal(); Som.escolha(); };
+  document.getElementById("fecharProva").onclick = () => dlg.close();
+  dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
+  dlg.addEventListener("close", () => { if (pausei && state.tela === "wrapped") Auto.retomar(); pausei = false; abrir.focus(); });
 }
 
 /* ---------- Resumo final ---------- */
@@ -663,12 +692,12 @@ function ligarResumo(r) {
 /* ---------- Toques: avançar, voltar e segurar para pausar ---------- */
 let segurando = null, segurou = false;
 app.addEventListener("pointerdown", ev => {
-  if (state.tela !== "wrapped" || ev.target.closest("a,button,input,details,iframe,.video,.depo")) return;
+  if (state.tela !== "wrapped" || ev.target.closest("a,button,input,details,iframe,dialog,.video,.depo")) return;
   segurou = false;
   segurando = setTimeout(() => { segurou = true; Auto.pausar(); }, 220);
 });
 app.addEventListener("pointerup", ev => {
-  if (state.tela !== "wrapped" || ev.target.closest("a,button,input,details,iframe,.video,.depo")) return;
+  if (state.tela !== "wrapped" || ev.target.closest("a,button,input,details,iframe,dialog,.video,.depo")) return;
   clearTimeout(segurando);
   if (segurou) { segurou = false; Auto.retomar(); return; }
   const x = ev.clientX - app.getBoundingClientRect().left;
@@ -677,6 +706,7 @@ app.addEventListener("pointerup", ev => {
 app.addEventListener("pointercancel", () => { clearTimeout(segurando); if (segurou) { segurou = false; Auto.retomar(); } });
 
 document.addEventListener("keydown", e => {
+  if (document.querySelector("dialog[open]")) return; // com o painel aberto, as teclas são dele (Esc fecha)
   if (state.tela === "wrapped") {
     if (e.key === "ArrowRight") irSlide(1);
     else if (e.key === "ArrowLeft") irSlide(-1);

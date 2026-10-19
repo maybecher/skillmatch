@@ -62,6 +62,10 @@ depoimento: { nome: "Ana Souza", info: "Mecatrônica · SP Skills 2024", texto: 
 
 O código do vídeo é o que vem depois de `v=` no link do YouTube.
 
+## Botão "Entenda a prova"
+
+No slide "Como é a prova", o botão "Entenda a prova" abre um painel com o que a modalidade faz, o que mais pesa na nota (com barras), um destaque e quem procurar na escola. O story pausa enquanto o painel está aberto. O conteúdo fica em `dados.js`, em cada modalidade: `prova` (`resumo`, `pesos` como [item avaliado, % da nota] e `destaque`) e `procurar` (nome da pessoa; `null` esconde a linha). #18 Instalações Elétricas e #19 Controle Industrial ainda estão sem nome. O link para o documento completo da WorldSkills fica no fim do painel.
+
 ## Card para o story
 
 O card não tem link, porque o jogo e a inscrição são internos da escola. No lugar do endereço, ele traz "E você? Descubra a sua" e "Faça o SkillMatch no SENAI Roberto Simonsen". No alto, o card traz o símbolo do Team 1.01 à esquerda e o brasão do SENAI Roberto Simonsen à direita.
