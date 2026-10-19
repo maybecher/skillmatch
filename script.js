@@ -17,7 +17,7 @@ const TEMAS = [
 const MODO_TESTE = new URLSearchParams(location.search).has("teste");
 const REG_KEY = "skillmatch:registros";
 /* Quantas opções cada pergunta de múltipla escolha mostra, e quantos duelos entram por jogo. */
-const OPCOES_POR_PERGUNTA = 8, DUELOS_POR_JOGO = 8;
+const OPCOES_POR_PERGUNTA = 8, DUELOS_POR_JOGO = 4; // 10 perguntas + 4 duelos = 14; com o desempate, no máximo 15
 const app = document.getElementById("app");
 const reduzMovimento = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -35,7 +35,7 @@ function novoId() { return Date.now().toString(36) + Math.random().toString(36).
 /* Monta as perguntas de um jogo. Há mais modalidades do que opções por pergunta, então cada pergunta
    mostra as modalidades que apareceram menos até ali (empates sorteados). Assim todas aparecem
    praticamente o mesmo número de vezes. Os duelos são sorteados do banco pelo mesmo critério.
-   As perguntas ficam na ordem do arquivo; os duelos entram intercalados a partir da 2ª. */
+   As perguntas ficam na ordem do arquivo; os duelos entram espalhados entre elas. */
 function montarItens() {
   const vezes = Object.fromEntries(KEYS.map(k => [k, 0]));
   const menosVistas = (ks, n) => embaralhar(ks).sort((a, b) => vezes[a] - vezes[b]).slice(0, n);
@@ -54,9 +54,11 @@ function montarItens() {
     return { id: p.id, ordem: embaralhar(ks) };
   });
 
-  const seq = [];
-  multipla.forEach((it, j) => { seq.push(it); if (j >= 1 && duelos.length) { const d = duelos.shift(); seq.push({ id: d.id, ordem: embaralhar(Object.keys(d.o)) }); } });
-  duelos.forEach(d => seq.push({ id: d.id, ordem: embaralhar(Object.keys(d.o)) }));
+  // Duelos espalhados ao longo do jogo (com 10 perguntas e 4 duelos: depois da 2ª, 4ª, 6ª e 8ª).
+  const seq = [], passo = Math.max(1, Math.floor(multipla.length / (duelos.length + 1)));
+  const comoItem = d => ({ id: d.id, ordem: embaralhar(Object.keys(d.o)) });
+  multipla.forEach((it, j) => { seq.push(it); if ((j + 1) % passo === 0 && j < multipla.length - 1 && duelos.length) seq.push(comoItem(duelos.shift())); });
+  duelos.forEach(d => seq.push(comoItem(d)));
   return seq;
 }
 
