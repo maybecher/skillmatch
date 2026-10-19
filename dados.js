@@ -165,6 +165,30 @@ const MODALIDADES = {
     midia: null, depoimento: null }
 };
 
+/* Grupos de modalidades com relação lógica (tipo de trabalho e o que a prova avalia).
+   Uma modalidade pode estar em mais de um grupo: ela vira "ponte" entre eles.
+   No resultado, o 1º lugar é a modalidade de maior afinidade; do 2º em diante, a afinidade é ponderada
+   pela relação com o 1º: mesmo grupo = 100%, ligação parcial = 75%, sem relação = 40%.
+   Assim o top 5 mostra modalidades coerentes entre si (ex.: Mecatrônica em 1º não vem com Química em 2º). */
+const GRUPOS = {
+  "Tecnologia da informação": ["app", "web", "game"],
+  "Design e projeto":         ["game", "prod", "cad"],
+  "Automação e energia":      ["elet", "ctrl", "i40", "mec"],
+  "Mecânica":                 ["mecind", "mec", "cad"],
+  "Madeira":                  ["movel", "marc"],
+  "Laboratório":              ["quim"]
+};
+/* Ligações parciais entre modalidades de grupos diferentes, que têm algo em comum. */
+const LIGACOES = [
+  ["movel", "prod"],   // criar objetos pensando em forma e uso
+  ["marc", "cad"],     // desenho técnico e cálculo das peças
+  ["quim", "i40"],     // controle de processos e dados
+  ["mecind", "ctrl"],  // manutenção e automação industrial
+  ["web", "i40"],      // redes, sistemas e dados
+  ["app", "prod"]      // pensar na experiência de quem usa
+];
+const PESO_RELACAO = { grupo: 1, ligacao: 0.75, nenhuma: 0.4 };
+
 /* Fotos da WorldSkills 2026 (Xangai), do Flickr oficial da WorldSkills:
    https://www.flickr.com/photos/worldskills/collections/72157725408624379/
    Licença CC BY-NC-ND 4.0: uso não comercial, com crédito e sem alterar a imagem.
@@ -211,29 +235,29 @@ const PERGUNTAS = [
     app:    "Testar apps novos e pensar no que dava para melhorar",
     web:    "Fuçar no computador até entender como funciona por trás",
     ctrl:   "Desafios de lógica e quebra-cabeças",
-    elet:   "Ajudar em casa com tomada, lâmpada ou chuveiro",
-    mec:    "Montar kits de robótica ou carrinhos que andam sozinhos",
-    i40:    "Jogos de estratégia em que você administra uma cidade",
+    elet:   "Ajudar quando algo elétrico dá problema em casa",
+    mec:    "Montar coisas que se mexem sozinhas",
+    i40:    "Jogos de estratégia e de administrar recursos",
     prod:   "Inventar e construir coisas com papelão ou sucata",
-    mecind: "Mexer em motor de moto, bicicleta ou carro",
+    mecind: "Mexer em motores e peças",
     cad:    "Desenhar projetos e plantas com tudo medido",
     movel:  "Reformar ou customizar móveis e objetos de casa",
-    marc:   "Construir coisas de madeira, como uma prateleira",
-    quim:   "Fazer experiências misturando coisas para ver o que acontece" } },
+    marc:   "Construir coisas que precisam ficar firmes",
+    quim:   "Fazer experiências para ver o que acontece" } },
   { id: "q3", q: "Você ganhou um presente. Qual escolhe?", o: {
-    game:   "Uma mesa digitalizadora para desenhar",
-    app:    "Um curso para criar meu próprio aplicativo",
-    web:    "Um curso para criar meu próprio site",
-    ctrl:   "Um kit de motores e sensores para automatizar coisas",
-    elet:   "Um kit de energia solar para montar",
+    game:   "Algo para desenhar e criar arte digital",
+    app:    "Um curso para criar aplicativos",
+    web:    "Um curso para criar sites e sistemas",
+    ctrl:   "Um kit para automatizar coisas em casa",
+    elet:   "Um kit para aprender sobre energia e eletricidade",
     mec:    "Um robô para montar e programar",
-    i40:    "Um kit para conectar aparelhos e ver os dados no celular",
+    i40:    "Um kit para conectar aparelhos e acompanhar tudo",
     prod:   "Uma impressora 3D para criar objetos",
-    mecind: "Um motor antigo para desmontar e restaurar",
-    cad:    "Um programa profissional de projeto 3D",
-    movel:  "Ferramentas para fazer meus próprios móveis",
-    marc:   "Material para construir uma casa na árvore",
-    quim:   "Um kit de química com vidrarias de laboratório" } },
+    mecind: "Uma máquina para desmontar e entender por dentro",
+    cad:    "Um programa para projetar peças em 3D",
+    movel:  "Ferramentas para fazer móveis",
+    marc:   "Ferramentas e madeira para construir coisas grandes",
+    quim:   "Um kit de experimentos de química" } },
   { id: "q4", q: "Você se considera uma pessoa mais…", o: {
     game:   "Criativa, com muita imaginação",
     app:    "Empática, que pensa em quem vai usar",
@@ -265,15 +289,15 @@ const PERGUNTAS = [
   { id: "q6", q: "O que te deixaria mais orgulhoso no fim do dia?", o: {
     game:   "Ver um personagem que eu desenhei ganhar vida",
     app:    "Alguém dizer que o que eu fiz facilitou a vida dele",
-    web:    "Um sistema meu aguentar muita gente usando sem travar",
+    web:    "Algo que eu programei funcionar sem nenhum erro",
     ctrl:   "Algo que eu fazia na mão passar a acontecer sozinho",
     elet:   "Ligar a energia e tudo funcionar de primeira, sem risco",
     mec:    "Uma máquina que eu montei e programei fazer tudo sozinha",
-    i40:    "Mostrar com números que a produção melhorou",
+    i40:    "Mostrar com números que algo melhorou",
     prod:   "Ver uma ideia minha virar algo que as pessoas usam",
     mecind: "Uma máquina parada voltar a funcionar por minha causa",
     cad:    "Um projeto meu virar uma peça que encaixa perfeitamente",
-    movel:  "Um móvel que eu fiz ficar com acabamento de loja",
+    movel:  "Algo que eu fiz à mão ficar com acabamento perfeito",
     marc:   "Uma estrutura que eu montei aguentar firme",
     quim:   "Descobrir exatamente o que tinha numa amostra" } },
   { id: "q7", q: "Qual frase mais combina com você?", o: {
@@ -295,21 +319,21 @@ const PERGUNTAS = [
     app:    "Criar uma pesquisa para saber o que a turma precisa",
     web:    "Montar a página do projeto na internet",
     ctrl:   "Resolver os exercícios de lógica",
-    elet:   "Montar o circuito na aula de física",
+    elet:   "Montar a parte elétrica do projeto",
     mec:    "Construir o robô da feira de ciências",
     i40:    "Organizar os dados e os gráficos do trabalho",
     prod:   "Criar a maquete do produto",
-    mecind: "Consertar o que quebrou na sala",
+    mecind: "Consertar o que quebrou",
     cad:    "Fazer a planta em escala, com todas as medidas",
-    movel:  "Fazer a estante do cenário da peça de teatro",
-    marc:   "Montar a estrutura de madeira do estande",
+    movel:  "Construir um móvel para a sala",
+    marc:   "Construir a estrutura do estande da feira",
     quim:   "Fazer o experimento da aula de química" } },
   { id: "q9", q: "Na feira de profissões, em qual estande você para primeiro?", o: {
     game:   "O de jogos, com personagens criados em 3D",
     app:    "O de aplicativos que resolvem problemas da cidade",
-    web:    "O de sites e sistemas que funcionam na nuvem",
-    ctrl:   "O de painéis que comandam máquinas sozinhas",
-    elet:   "O de energia solar e carro elétrico",
+    web:    "O de sites e sistemas na internet",
+    ctrl:   "O de automação de máquinas",
+    elet:   "O de energia e instalações elétricas",
     mec:    "O de robôs e máquinas automáticas",
     i40:    "O da fábrica inteligente, com tudo conectado",
     prod:   "O de produtos inovadores e sustentáveis",
@@ -324,11 +348,11 @@ const PERGUNTAS = [
     web:    "Procurar o erro passo a passo até achar",
     ctrl:   "Ver em que etapa da sequência deu errado",
     elet:   "Desligar tudo e checar se está seguro",
-    mec:    "Abrir para ver a parte mecânica e a eletrônica",
+    mec:    "Abrir para ver como funciona por dentro",
     i40:    "Olhar os dados para entender o que mudou",
     prod:   "Pensar em como redesenhar para não quebrar mais",
     mecind: "Pegar as ferramentas e consertar na hora",
-    cad:    "Medir a peça quebrada para fazer uma nova igual",
+    cad:    "Medir e desenhar uma peça nova",
     movel:  "Ajustar e lixar até ficar como novo",
     marc:   "Reforçar a estrutura para aguentar mais",
     quim:   "Investigar o que causou o problema" } }
@@ -341,18 +365,18 @@ const DUELOS = [
   { id: "d1", q: "Num app de delivery, qual parte você ia gostar mais de fazer?", o: {
     app: "A tela em que a pessoa escolhe e pede com dois toques",
     web: "O sistema por trás, que recebe os pedidos e guarda tudo" } },
-  { id: "d2", q: "Uma esteira da fábrica parou. Você prefere…", o: {
-    mec:  "Ir até a máquina e achar o defeito na mecânica ou no programa",
-    ctrl: "Ir ao painel de comando e descobrir qual etapa falhou" } },
+  { id: "d2", q: "Uma máquina parou de funcionar. Você prefere…", o: {
+    mec:  "Abrir a máquina e achar o defeito",
+    ctrl: "Ir ao painel de comando e ver qual etapa falhou" } },
   { id: "d3", q: "Você prefere que as coisas que você cria…", o: {
     game: "Existam num mundo digital, onde tudo é possível",
     prod: "Existam no mundo real, para alguém pegar na mão" } },
-  { id: "d4", q: "Num prédio novo, você preferiria…", o: {
-    elet: "Deixar toda a instalação elétrica pronta e segura",
-    i40:  "Ligar os equipamentos numa rede e acompanhar os dados" } },
+  { id: "d4", q: "Num prédio novo, você ficaria com…", o: {
+    elet: "A instalação elétrica, pronta e segura",
+    i40:  "A rede que conecta os equipamentos" } },
   { id: "d5", q: "Com eletricidade, o que te atrai mais?", o: {
-    ctrl: "Fazer um motor ligar, parar e inverter sozinho",
-    elet: "Deixar a instalação de uma casa inteira segura e bem-feita" } },
+    ctrl: "Fazer máquinas funcionarem sozinhas",
+    elet: "Deixar a instalação de uma casa segura" } },
   { id: "d6", q: "Num time de robótica, você seria quem…", o: {
     mec: "Monta e programa o robô",
     i40: "Conecta tudo e analisa os dados para o time decidir" } },
@@ -364,9 +388,9 @@ const DUELOS = [
     prod: "Desenhar um objeto pensando em quem vai usar" } },
   { id: "d9", q: "Com madeira, o que você prefere fazer?", o: {
     movel: "Um móvel com gavetas e acabamento perfeito",
-    marc:  "Uma escada ou uma janela, com encaixes bem firmes" } },
+    marc:  "Portas, janelas ou escadas" } },
   { id: "d10", q: "Uma peça de máquina quebrou. Você prefere…", o: {
-    cad:    "Desenhar no computador a peça nova, com todas as medidas",
+    cad:    "Desenhar a peça nova no computador",
     mecind: "Trocar a peça e deixar a máquina rodando de novo" } },
   { id: "d11", q: "Você prefere trabalhar com…", o: {
     quim: "Substâncias e experimentos num laboratório",
@@ -386,11 +410,11 @@ const DUELOS = [
   { id: "d16", q: "Você prefere acompanhar…", o: {
     quim: "Os resultados das análises de um laboratório",
     i40:  "Os dados de uma fábrica inteira numa tela" } },
-  { id: "d17", q: "Numa fábrica automatizada, você prefere cuidar…", o: {
-    ctrl: "Do painel e da programação de cada máquina",
-    i40:  "Da rede que conecta todas as máquinas e dos dados delas" } },
+  { id: "d17", q: "Numa fábrica, você prefere cuidar…", o: {
+    ctrl: "Da programação de cada máquina",
+    i40:  "Da rede e dos dados de todas as máquinas" } },
   { id: "d18", q: "Num projeto em 3D, você prefere…", o: {
-    game: "Criar um personagem com cores e expressão",
-    cad:  "Modelar uma peça com medidas exatas para fabricar" } }
+    game: "Criar um personagem",
+    cad:  "Modelar uma peça para fabricar" } }
 ];
 /* ===================================================================== */

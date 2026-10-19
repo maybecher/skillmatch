@@ -68,9 +68,10 @@ function novoJogo(tela = "inicio", perfil = {}) {
     pausaVista: false, slide: 0, id: novoId(), registrado: false, feedback: null };
 }
 
-/* Afinidade = das vezes em que a modalidade apareceu como opção, quantas o aluno escolheu.
-   Contar as oportunidades evita que uma modalidade ganhe só por ter aparecido mais. */
-function calcular(comDesempate = true) {
+/* Afinidade bruta = das vezes em que a modalidade apareceu como opção, quantas o aluno escolheu.
+   Contar as oportunidades evita que uma modalidade ganhe só por ter aparecido mais.
+   É ela que decide o 1º lugar e o desempate. */
+function calcularBruto(comDesempate = true) {
   const pts = Object.fromEntries(KEYS.map(k => [k, 0])), vezes = { ...pts };
   state.itens.forEach((it, j) => {
     const resp = state.respostas[j];
@@ -88,9 +89,26 @@ function calcular(comDesempate = true) {
   if (d && r[1]?.k === d && state.desempateOrdem?.includes(r[0].k)) [r[0], r[1]] = [r[1], r[0]];
   return r;
 }
+
+/* Relação lógica entre duas modalidades, pelos GRUPOS e LIGACOES de dados.js. */
+function relacao(a, b) {
+  if (a === b || Object.values(GRUPOS).some(g => g.includes(a) && g.includes(b))) return PESO_RELACAO.grupo;
+  if (LIGACOES.some(([x, y]) => (x === a && y === b) || (x === b && y === a))) return PESO_RELACAO.ligacao;
+  return PESO_RELACAO.nenhuma;
+}
+/* Resultado que o aluno vê: o 1º lugar pela afinidade bruta; do 2º em diante, a afinidade é ponderada
+   pela relação com o 1º, para o top 5 ser coerente (modalidades do mesmo grupo vêm antes). */
+function calcular(comDesempate = true) {
+  const [top, ...resto] = calcularBruto(comDesempate);
+  const ordenado = resto
+    .map(x => { const peso = relacao(top.k, x.k); return { ...x, peso, af: x.taxa * peso, pct: Math.round(100 * x.taxa * peso) }; })
+    .sort((a, b) => b.af - a.af || b.taxa - a.taxa || state.sorteio.indexOf(a.k) - state.sorteio.indexOf(b.k));
+  return [{ ...top, peso: 1, af: top.taxa }, ...ordenado];
+}
+
 /* Pede desempate quando as duas primeiras ficam a no máximo uma resposta de distância. */
 function precisaDesempate() {
-  const [a, b] = calcular(false);
+  const [a, b] = calcularBruto(false);
   const umaResposta = 1 / Math.max(1, (a.vezes + b.vezes) / 2);
   return a.taxa - b.taxa <= umaResposta + 1e-9;
 }
@@ -354,7 +372,7 @@ const TELAS = {
   },
 
   desempate() {
-    const r = calcular(false);
+    const r = calcularBruto(false); // o desempate é entre as duas maiores afinidades brutas
     if (!state.desempateOrdem) state.desempateOrdem = embaralhar([r[0].k, r[1].k]);
     return {
       tema: 1, seed: 50,
