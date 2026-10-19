@@ -168,7 +168,7 @@ const MODALIDADES = {
 /* Grupos de modalidades com relação lógica (tipo de trabalho e o que a prova avalia).
    Uma modalidade pode estar em mais de um grupo: ela vira "ponte" entre eles.
    No resultado, o 1º lugar é a modalidade de maior afinidade; do 2º em diante, a afinidade é ponderada
-   pela relação com o 1º: mesmo grupo = 100%, ligação parcial = 75%, sem relação = 40%.
+   pela relação com o 1º: mesmo grupo = 100%, ligação parcial = 75%, sem relação = 10%.
    Assim o top 5 mostra modalidades coerentes entre si (ex.: Mecatrônica em 1º não vem com Química em 2º). */
 const GRUPOS = {
   "Tecnologia da informação": ["app", "web", "game"],
@@ -187,7 +187,7 @@ const LIGACOES = [
   ["web", "i40"],      // redes, sistemas e dados
   ["app", "prod"]      // pensar na experiência de quem usa
 ];
-const PESO_RELACAO = { grupo: 1, ligacao: 0.75, nenhuma: 0.4 };
+const PESO_RELACAO = { grupo: 1, ligacao: 0.75, nenhuma: 0.1 };
 
 /* Fotos da WorldSkills 2026 (Xangai), do Flickr oficial da WorldSkills:
    https://www.flickr.com/photos/worldskills/collections/72157725408624379/
@@ -359,7 +359,7 @@ const PERGUNTAS = [
 ];
 
 /* Perguntas "isso ou aquilo": separam perfis parecidos.
-   Este é um banco de duelos: a cada jogo são sorteados 4, dando prioridade às modalidades que apareceram menos.
+   Este é um banco de duelos: a cada jogo são sorteados 5, dando prioridade às modalidades que apareceram menos.
    Eles aparecem intercalados com as perguntas de múltipla escolha. Toda modalidade deve estar em pelo menos 2 duelos. */
 const DUELOS = [
   { id: "d1", q: "Num app de delivery, qual parte você ia gostar mais de fazer?", o: {

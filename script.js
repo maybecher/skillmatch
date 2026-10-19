@@ -17,7 +17,7 @@ const TEMAS = [
 const MODO_TESTE = new URLSearchParams(location.search).has("teste");
 const REG_KEY = "skillmatch:registros";
 /* Quantas opções cada pergunta de múltipla escolha mostra, e quantos duelos entram por jogo. */
-const OPCOES_POR_PERGUNTA = 8, DUELOS_POR_JOGO = 4; // 10 perguntas + 4 duelos = 14; com o desempate, no máximo 15
+const OPCOES_POR_PERGUNTA = 8, DUELOS_POR_JOGO = 5; // 10 perguntas + 5 duelos = sempre 15 (o 5º vira desempate quando precisa)
 const app = document.getElementById("app");
 const reduzMovimento = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -54,11 +54,14 @@ function montarItens() {
     return { id: p.id, ordem: embaralhar(ks) };
   });
 
-  // Duelos espalhados ao longo do jogo (com 10 perguntas e 4 duelos: depois da 2ª, 4ª, 6ª e 8ª).
-  const seq = [], passo = Math.max(1, Math.floor(multipla.length / (duelos.length + 1)));
+  // Duelos espalhados ao longo do jogo (com 10 perguntas: depois da 2ª, 4ª, 6ª e 8ª).
+  // O último duelo fica reservado para a 15ª pergunta, que vira o desempate quando há empate (ver escolher()).
   const comoItem = d => ({ id: d.id, ordem: embaralhar(Object.keys(d.o)) });
+  const final = duelos.pop();
+  const seq = [], passo = Math.max(1, Math.floor(multipla.length / (duelos.length + 1)));
   multipla.forEach((it, j) => { seq.push(it); if ((j + 1) % passo === 0 && j < multipla.length - 1 && duelos.length) seq.push(comoItem(duelos.shift())); });
   duelos.forEach(d => seq.push(comoItem(d)));
+  if (final) seq.push({ ...comoItem(final), final: true });
   return seq;
 }
 
@@ -68,20 +71,25 @@ function novoJogo(tela = "inicio", perfil = {}) {
     pausaVista: false, slide: 0, id: novoId(), registrado: false, feedback: null };
 }
 
-/* Afinidade bruta = das vezes em que a modalidade apareceu como opção, quantas o aluno escolheu.
+/* Afinidade bruta = das vezes em que a modalidade apareceu numa pergunta de múltipla escolha, quantas o aluno
+   escolheu, com o ajuste dos duelos.
    Contar as oportunidades evita que uma modalidade ganhe só por ter aparecido mais.
    É ela que decide o 1º lugar e o desempate. */
 function calcularBruto(comDesempate = true) {
-  const pts = Object.fromEntries(KEYS.map(k => [k, 0])), vezes = { ...pts };
+  const pts = Object.fromEntries(KEYS.map(k => [k, 0])), vezes = { ...pts }, saldo = { ...pts };
+  // Duelos e desempate não entram na proporção (num duelo a chance de ser escolhida é 50%, contra 12,5% numa
+  // pergunta de 8 opções, o que favoreceria quem aparece em mais duelos). Eles ajustam: +½ ponto para quem vence, −½ para quem perde.
+  const duelo = (ks, venc) => ks.forEach(k => { if (k in saldo) saldo[k] += k === venc ? 0.5 : -0.5; });
   state.itens.forEach((it, j) => {
     const resp = state.respostas[j];
     if (!resp) return;
+    if (ITENS[it.id].duelo) return duelo(it.ordem, resp);
     it.ordem.forEach(k => { if (k in vezes) vezes[k]++; });
     if (resp in pts) pts[resp]++;
   });
   const d = comDesempate ? state.desempate : null;
-  if (d in pts && state.desempateOrdem) { state.desempateOrdem.forEach(k => vezes[k]++); pts[d]++; }
-  const r = KEYS.map(k => ({ k, pts: pts[k], vezes: vezes[k], taxa: vezes[k] ? pts[k] / vezes[k] : 0 }))
+  if (d in pts && state.desempateOrdem) duelo(state.desempateOrdem, d);
+  const r = KEYS.map(k => ({ k, pts: pts[k], vezes: vezes[k], taxa: vezes[k] ? Math.min(1, Math.max(0, (pts[k] + saldo[k]) / vezes[k])) : 0 }))
     .map(x => ({ ...x, pct: Math.round(100 * x.taxa) }))
     // Empate exato: vale a ordem sorteada no início do jogo, para nenhuma modalidade levar vantagem pela posição na lista.
     .sort((a, b) => b.taxa - a.taxa || b.pts - a.pts || state.sorteio.indexOf(a.k) - state.sorteio.indexOf(b.k));
@@ -377,7 +385,7 @@ const TELAS = {
     return {
       tema: 1, seed: 50,
       corpo: `
-        <p class="kicker sobe">Pergunta extra</p>
+        <p class="kicker sobe">Desempate · ${state.itens.length} de ${state.itens.length}</p>
         <h2 class="pergunta sobe" style="--d:.05s">Deu quase empate! Qual dessas provas você faria?</h2>
         ${duelo(state.desempateOrdem, k => `<b>${esc(MODALIDADES[k].nome)}</b><small>${esc(MODALIDADES[k].texto)}</small>`, state.desempate)}`,
       rodape: `<button class="linkbtn" id="voltar">← Voltar</button><span>Desempate</span>`,
@@ -433,12 +441,14 @@ function escolher(k) {
     travado = false;
     app.classList.remove("escolheu");
     const meio = Math.floor(state.itens.length / 2) - 1;
+    const proximo = state.itens[state.i + 1];
     if (state.tela === "desempate") { state.tela = "wrapped"; state.slide = 0; }
-    else if (state.i < state.itens.length - 1) {
+    // A última pergunta vira o desempate quando as duas primeiras estão empatadas: o jogo tem sempre o mesmo total.
+    else if (proximo?.final && precisaDesempate()) { state.tela = "desempate"; state.desempate = null; }
+    else if (proximo) {
       if (state.i === meio && !state.pausaVista) { state.pausaVista = true; state.i++; state.tela = "pausa"; }
       else state.i++;
     }
-    else if (precisaDesempate()) { state.tela = "desempate"; state.desempate = null; }
     else { state.tela = "wrapped"; state.slide = 0; }
     render();
   });
