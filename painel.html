@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Painel da Seletiva</title>
+<link rel="icon" href="assets/favicon.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inria+Serif:ital,wght@0,400;0,700;1,400&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+  .wrap { max-width: 860px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .tile { border: 1px solid var(--line); border-radius: 5px; padding: 14px 16px; display: grid; gap: 2px; }
+  .tile small { font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .tile b { font-family: var(--f-display); font-weight: 900; font-stretch: 112%; font-size: 34px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .tile span { font-size: 13px; color: var(--muted); }
+  .chart { display: grid; gap: 4px; }
+  .crow { display: grid; grid-template-columns: minmax(0, 220px) 1fr 74px; gap: 12px; align-items: center; padding: 6px 4px; border-radius: 4px; position: relative; }
+  .crow:hover, .crow:focus-visible { background: var(--accent-soft); outline: none; }
+  .crow .lab { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .crow .lab .code { margin-right: 6px; font-size: 12px; }
+  .crow .trk { height: 14px; display: flex; align-items: center; }
+  .crow .bx { height: 14px; background: var(--accent); border-radius: 0 4px 4px 0; min-width: 2px; }
+  .crow .num { font-family: var(--f-mono); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+  .crow .num small { color: var(--muted); }
+  .tip { position: fixed; z-index: 20; pointer-events: none; background: var(--ink); color: var(--paper); font-size: 13px; padding: 8px 10px; border-radius: 4px; max-width: 260px; line-height: 1.4; }
+  .tip[hidden] { display: none; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+  th { font-family: var(--f-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  td.n { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+  .tabwrap { overflow-x: auto; }
+  .fonte { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+  label.chk { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+  @media (max-width: 520px) { .crow { grid-template-columns: minmax(0, 1fr) 64px; } .crow .trk { grid-column: 1 / -1; grid-row: 2; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="badge"><span>Painel da coordenação · <b id="evento"></b></span><span class="fonte" id="fonte"></span></div>
+  <main class="panel" id="painel"><p class="note">Carregando…</p></main>
+</div>
+<div class="tip" id="tip" hidden></div>
+<script src="dados.js"></script>
+<script>
+const KEYS = Object.keys(MODALIDADES);
+const chave = new URLSearchParams(location.search).get("chave") || "";
+const el = document.getElementById("painel");
+document.getElementById("evento").textContent = CONFIG.evento;
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pct = (a, b) => b ? Math.round(100 * a / b) + "%" : "–";
+let todos = [], incluirTeste = false;
+
+async function carregar() {
+  if (CONFIG.registroUrl) {
+    if (!chave) { el.innerHTML = `<p>Abra este painel com a chave no endereço: <code>painel.html?chave=SUA_CHAVE</code> (a mesma definida no apps-script.gs).</p>`; return; }
+    try {
+      const resp = await fetch(CONFIG.registroUrl + "?chave=" + encodeURIComponent(chave));
+      const d = await resp.json();
+      if (d.erro) { el.innerHTML = `<p>Não foi possível ler os dados: ${esc(d.erro)}.</p>`; return; }
+      todos = d.registros || [];
+      document.getElementById("fonte").textContent = "Fonte: planilha online";
+    } catch (e) { el.innerHTML = `<p>Não foi possível conectar à planilha. Verifique o registroUrl em dados.js.</p>`; return; }
+  } else {
+    try { todos = JSON.parse(localStorage.getItem("skillmatch:registros") || "[]"); } catch (e) { todos = []; }
+    document.getElementById("fonte").textContent = "Fonte: só este aparelho";
+  }
+  desenhar();
+}
+
+function desenhar() {
+  const regs = todos.filter(r => r.modalidade && (incluirTeste || r.teste !== "sim"));
+  const testes = todos.filter(r => r.modalidade && r.teste === "sim");
+  const n = regs.length;
+  const comFb = regs.filter(r => r.feedback), sim = comFb.filter(r => r.feedback === "sim");
+  const comIdade = regs.filter(r => r.elegivel), dentro = comIdade.filter(r => r.elegivel === "sim");
+  const desemp = regs.filter(r => r.desempate);
+
+  const cont = Object.fromEntries(KEYS.map(k => [k, { n: 0, seg: 0, fb: 0, fbSim: 0, fora: 0 }]));
+  regs.forEach(r => {
+    const c = cont[r.modalidade]; if (!c) return;
+    c.n++; if (r.feedback) { c.fb++; if (r.feedback === "sim") c.fbSim++; } if (r.elegivel === "nao") c.fora++;
+    if (cont[r.segunda]) cont[r.segunda].seg++;
+  });
+  const ord = KEYS.slice().sort((a, b) => cont[b].n - cont[a].n);
+  const max = Math.max(1, ...ord.map(k => cont[k].n));
+
+  const acerto1 = testes.filter(r => r.expectativa && r.expectativa === r.modalidade).length;
+  const acerto2 = testes.filter(r => r.expectativa && (r.expectativa === r.modalidade || r.expectativa === r.segunda)).length;
+  const comExp = testes.filter(r => r.expectativa).length;
+
+  el.innerHTML = `
+    <div style="display:grid;gap:22px">
+      <h2>Resultados do jogo vocacional</h2>
+      <div class="row" style="justify-content:space-between">
+        <label class="chk"><input type="checkbox" id="chkTeste" ${incluirTeste ? "checked" : ""}> Incluir jogadas do modo teste</label>
+        <div class="row"><button class="btn ghost small" id="csv" ${todos.length ? "" : "disabled"}>Baixar CSV</button><button class="btn ghost small" id="recarregar">Atualizar</button></div>
+      </div>
+      <div class="tiles">
+        <div class="tile"><small>Alunos que jogaram</small><b>${n}</b><span>resultados registrados</span></div>
+        <div class="tile"><small>Acharam que combina</small><b>${pct(sim.length, comFb.length)}</b><span>de ${comFb.length} que responderam</span></div>
+        <div class="tile"><small>Dentro da idade</small><b>${pct(dentro.length, comIdade.length)}</b><span>na modalidade indicada</span></div>
+        <div class="tile"><small>Precisaram de desempate</small><b>${pct(desemp.length, n)}</b><span>top 2 muito próximos</span></div>
+      </div>
+      <section style="display:grid;gap:12px">
+        <h3>Modalidade indicada (1º lugar)</h3>
+        ${n ? `<div class="chart" id="chart">${ord.map(k => { const m = MODALIDADES[k], c = cont[k]; return `
+          <div class="crow" tabindex="0" data-k="${k}">
+            <span class="lab"><span class="code">${m.codigo}</span>${esc(m.nome)}</span>
+            <span class="trk"><span class="bx" style="width:${100 * c.n / max}%"></span></span>
+            <span class="num">${c.n} <small>${pct(c.n, n)}</small></span>
+          </div>`; }).join("")}</div>` : `<p class="note">Nenhum resultado ainda. Quando os alunos jogarem, a procura por modalidade aparece aqui.</p>`}
+      </section>
+      ${n ? `<section style="display:grid;gap:12px">
+        <h3>Detalhe por modalidade</h3>
+        <div class="tabwrap"><table>
+          <thead><tr><th>Modalidade</th><th class="n">1º lugar</th><th class="n">2º lugar</th><th class="n">Combina</th><th class="n">Fora da idade</th></tr></thead>
+          <tbody>${ord.map(k => { const c = cont[k]; return `<tr><td>${esc(MODALIDADES[k].nome)}</td><td class="n">${c.n}</td><td class="n">${c.seg}</td><td class="n">${pct(c.fbSim, c.fb)}</td><td class="n">${c.fora}</td></tr>`; }).join("")}</tbody>
+        </table></div>
+      </section>` : ""}
+      <section style="display:grid;gap:8px">
+        <h3>Validação (modo teste)</h3>
+        ${testes.length ? `<p>Jogadas no modo teste: <b>${testes.length}</b>. Informaram antes qual modalidade esperavam: <b>${comExp}</b>.
+          O resultado bateu com a expectativa em <b>${pct(acerto1, comExp)}</b> dos casos (1º lugar) e em <b>${pct(acerto2, comExp)}</b> considerando o 2º lugar.</p>`
+        : `<p class="note">Para validar o jogo, peça a uns 20 alunos que joguem pelo endereço <code>index.html?teste=1</code>. Antes de começar, eles dizem qual modalidade esperam; aqui aparece quantas vezes o resultado bateu.</p>`}
+      </section>
+    </div>`;
+
+  document.getElementById("chkTeste").onchange = e => { incluirTeste = e.target.checked; desenhar(); };
+  document.getElementById("recarregar").onclick = carregar;
+  document.getElementById("csv").onclick = baixarCsv;
+  ligarDica(cont, n);
+}
+
+function ligarDica(cont, n) {
+  const tip = document.getElementById("tip");
+  document.querySelectorAll(".crow").forEach(row => {
+    const k = row.dataset.k, c = cont[k], m = MODALIDADES[k];
+    const html = `<b>${esc(m.nome)}</b><br>${c.n} alunos em 1º lugar (${pct(c.n, n)})<br>${c.seg} em 2º lugar<br>Combina: ${pct(c.fbSim, c.fb)} de ${c.fb} respostas`;
+    const mostrar = (X, Y) => { tip.innerHTML = html; tip.hidden = false; const w = tip.offsetWidth; tip.style.left = Math.min(X + 14, innerWidth - w - 8) + "px"; tip.style.top = (Y + 14) + "px"; };
+    row.onmousemove = e => mostrar(e.clientX, e.clientY);
+    row.onfocus = () => { const b = row.getBoundingClientRect(); mostrar(b.left + 20, b.bottom - 10); };
+    row.onmouseleave = row.onblur = () => tip.hidden = true;
+  });
+}
+
+function baixarCsv() {
+  const cols = ["id", "data", "modalidade", "segunda", "afinidade", "idade", "elegivel", "desempate", "expectativa", "teste", "feedback", "respostas"];
+  const cel = v => { const s = String(v ?? ""); return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const linhas = [cols.join(";"), ...todos.map(r => cols.map(c => cel(c === "modalidade" || c === "segunda" || c === "expectativa" ? (MODALIDADES[r[c]]?.nome || r[c]) : r[c])).join(";"))];
+  const blob = new Blob(["﻿" + linhas.join("\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "resultados-jogo-vocacional.csv";
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+carregar();
+</script>
+</body>
+</html>
