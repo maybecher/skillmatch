@@ -74,6 +74,20 @@ const MODALIDADES = {
     midia: null, depoimento: null }
 };
 
+/* Foto oficial de cada modalidade no site da WorldSkills (worldskills.org/skills), mostrada só no resultado.
+   "img" é o endereço base da imagem: o jogo usa a versão _medium (640 px) e a original (2000 px) em telas de alta densidade.
+   "pagina" é a página da modalidade na WorldSkills, usada no crédito da foto. */
+const FOTOS = {
+  game: { img: "https://images.worldskillsusercontent.org/wsf1/ws03/22271/wsf1039f50-c4df-4a0a-adc2-ddabb167fb6a", pagina: "https://worldskills.org/skills/id/483/" },
+  app:  { img: "https://images.worldskillsusercontent.org/wscd/ws12/31397/wscd12ee3f-ebc9-4081-9cdb-43e003a876ed", pagina: "https://worldskills.org/skills/id/562/" },
+  web:  { img: "https://images.worldskillsusercontent.org/ws72/wsdb/22266/ws72dbd2f9-281e-41cf-9349-77bee08d63cd", pagina: "https://worldskills.org/skills/id/127/" },
+  ctrl: { img: "https://images.worldskillsusercontent.org/ws2a/ws62/22253/ws2a6208f2-620a-4768-a731-e66bebe13ecd", pagina: "https://worldskills.org/skills/id/146/" },
+  elet: { img: "https://images.worldskillsusercontent.org/wsdd/wsdf/22251/wsdddfcfce-c92b-4e69-9fab-d7f8a1648c41", pagina: "https://worldskills.org/skills/id/145/" },
+  mec:  { img: "https://images.worldskillsusercontent.org/ws73/ws47/22259/ws7347bac4-92a1-4692-b74e-c4f46e74f414", pagina: "https://worldskills.org/skills/id/216/" },
+  i40:  { img: "https://images.worldskillsusercontent.org/ws6c/ws62/31395/ws6c6210f5-034d-4148-93fb-817648a4797f", pagina: "https://worldskills.org/skills/id/786/" },
+  prod: { img: "https://images.worldskillsusercontent.org/ws82/wsd4/32881/ws82d4cda6-59f3-4e1b-a19b-32a9931c25db", pagina: "https://worldskills.org/skills/id/557/" } // Industrial Design Technology
+};
+
 /* Perguntas de 8 opções: uma resposta para cada modalidade, embaralhadas na tela.
    O "id" identifica a pergunta nos registros; não mude o id de uma pergunta já usada. */
 const PERGUNTAS = [

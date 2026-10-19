@@ -327,6 +327,7 @@ const TELAS = {
     state.slide = Math.min(state.slide, slides.length - 1);
     const s = slides[state.slide];
     registrarResultado(r);
+    precarregarFoto(r[0].k);
     return {
       ...s, classe: "wrapped", pausavel: !!s.dur,
       barras: `<div class="barras" aria-hidden="true">${slides.map((x, j) =>
@@ -447,13 +448,14 @@ function slidesResultado(r) {
         <span class="pc">${j === 0 ? "" : x.pct + "%"}</span></li>`;
     }).join("")}</ol>` });
 
-  slides.push({ id: "revela", dur: 7500, tema: 0, seed: 63, classe: "revelacao", corpo: `
+  slides.push({ id: "revela", dur: FOTOS[r[0].k] ? 9500 : 7500, tema: 0, seed: 63, classe: "revelacao", corpo: `
     <p class="medio sobe" style="--d:.1s">E a sua modalidade nº 1 é…</p>
     <div class="revela">
       <span class="kicker">Ocupação ${top.codigo}</span>
       <h2 class="nome-mod">${esc(top.nome)}</h2>
       <p class="pct-grande"><span data-conta="${r[0].pct}">0</span>% de afinidade</p>
-    </div>`,
+    </div>
+    ${fotoModalidade(r[0].k)}`,
     ligar() {
       if (reduzMovimento()) { Som.revelar(); return; }
       [0, 1, 2, 3, 4, 5, 6].forEach(j => depois(300 + j * 170, () => Som.tique()));
@@ -473,6 +475,21 @@ function slidesResultado(r) {
     ligar() { ligarResumo(r); } });
 
   return slides;
+}
+
+/* Foto oficial da WorldSkills; se não carregar (sem internet), o bloco some sem deixar buraco. */
+function fotoModalidade(k) {
+  const f = FOTOS[k];
+  if (!f) return "";
+  return `<figure class="foto-ws">
+    <img src="${f.img}_medium" srcset="${f.img}_medium 640w, ${f.img} 2000w" sizes="(max-width: 460px) 92vw, 420px"
+      alt="Competidor na prova de ${esc(MODALIDADES[k].nome)} na WorldSkills" onerror="this.closest('figure').remove()">
+    <figcaption>Foto: <a href="${f.pagina}" target="_blank" rel="noopener">WorldSkills</a></figcaption>
+  </figure>`;
+}
+function precarregarFoto(k) {
+  const f = FOTOS[k];
+  if (f && precarregarFoto.k !== k) { precarregarFoto.k = k; new Image().src = f.img + "_medium"; }
 }
 
 function slideIdade(r) {

@@ -47,6 +47,8 @@ Se o aluno estiver fora da idade da modalidade que ganhou, a inscrição vem pre
 
 ## Fotos, vídeos e depoimentos
 
+Cada modalidade já tem uma foto oficial da prova, tirada do catálogo de modalidades da WorldSkills (`FOTOS` em `dados.js`). Ela aparece só na revelação do resultado, com crédito e link para a página da modalidade. A imagem é carregada direto do site da WorldSkills, sem cópia no repositório; sem internet, o espaço da foto some. Design de Produtos usa a foto de "Industrial Design Technology", que é o nome atual dessa modalidade na WorldSkills.
+
 Cada modalidade em `dados.js` tem os campos `midia` e `depoimento`, hoje vazios (`null`). Sem eles, o resultado mostra um botão para buscar vídeos da prova no YouTube.
 
 ```js
