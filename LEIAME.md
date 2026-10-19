@@ -9,14 +9,17 @@ Abra `index.html` no navegador para jogar. Todo o conteúdo editável está em `
 | `marca.js`, `assets/` | Símbolo, brasão e padronagem do Team 1.01 (cópias leves das imagens do projeto team101) |
 | `painel.html`, `style.css` | Painel da coordenação: quantos jogaram e quais modalidades saíram mais |
 | `apps-script.gs` | Código que grava os resultados numa Planilha Google |
-| `perguntas-jogo-vocacional.xlsx` | Planilha original das perguntas. Ainda **não** tem os duelos novos |
+| `perguntas-jogo-vocacional.xlsx` | Planilha original das perguntas. Está desatualizada: não tem os duelos nem as modalidades novas |
 
 ## Como o jogo funciona
 
 O visual segue a identidade do site do Team 1.01: azul-marinho e dourado, fontes Montserrat e Inria Serif, o símbolo 1.01 e a padronagem em escada. Cada tela é um "story" com cor própria, e o resultado é uma sequência de slides que avançam sozinhos: ritmo de resposta, top 5, revelação da modalidade nº 1, perfil, idade, como é a prova e o resumo com o card. No resultado, toque à direita para avançar, à esquerda para voltar e segure para pausar.
 
 - O aluno informa o primeiro nome e o ano de nascimento. A lista de modalidades já mostra em quais ele está dentro da idade-limite.
-- São 12 perguntas de 8 opções e 8 duelos "isso ou aquilo", intercalados. Cada modalidade aparece em 2 duelos, então nenhuma leva vantagem.
+- São 13 modalidades: #01 Mecânica Industrial, #04 Mecatrônica, #05 Projeto de Engenharia Mecânica (CAD), #08 Desenvolvimento de Aplicativos Móveis, #17 Tech Web, #18 Instalações Elétricas, #19 Controle Industrial, #24 Movelaria, #25 Marcenaria de Estruturas, #48 Indústria 4.0, #50 3D Game Art, #52 Tecnologia Laboratorial Química e #59 Tecnologia em Design Industrial.
+- Cada jogo tem 20 perguntas: 12 de múltipla escolha e 8 duelos "isso ou aquilo", intercalados. Cada pergunta de múltipla escolha tem uma resposta escrita para cada modalidade, mas mostra só 8 delas: entram as modalidades que apareceram menos até ali. Os 8 duelos são sorteados de um banco de 16 pelo mesmo critério. Assim, todas as modalidades aparecem de 8 a 10 vezes por jogo.
+- A afinidade de cada modalidade é "das vezes em que ela apareceu, quantas o aluno escolheu". Contar as oportunidades evita que uma modalidade ganhe só por ter aparecido mais.
+- Para incluir uma modalidade, escreva a resposta dela em todas as perguntas de múltipla escolha, coloque-a em pelo menos 2 duelos e adicione as fotos em `FOTOS`.
 - Se as duas primeiras ficarem a 1 ponto ou menos uma da outra, aparece uma pergunta de desempate entre elas.
 - O resultado mostra o card para o story, o aviso de idade e os links da prova. No fim, o aluno diz se o resultado combinou com ele.
 
@@ -45,7 +48,7 @@ O aluno pode se inscrever em mais de uma modalidade. No fim do jogo, aparece o c
 
 ## Fotos, vídeos e depoimentos
 
-Cada modalidade tem 3 fotos da WorldSkills 2026 (Xangai), tiradas do [Flickr oficial da WorldSkills](https://www.flickr.com/photos/worldskills/collections/72157725408624379/) (`FOTOS` em `dados.js`). Elas passam em carrossel só na revelação do resultado, no tempo do story: se o aluno segura para pausar, o carrossel também para. As fotos têm licença CC BY-NC-ND 4.0 (uso não comercial, com crédito e sem alterar a imagem), por isso aparecem com o crédito e o link do álbum e são carregadas direto do Flickr, sem cópia no repositório. Sem internet, as fotos somem sem quebrar a tela. Design de Produtos usa o álbum de "Industrial Design Technology", o nome atual dessa modalidade na WorldSkills.
+Cada modalidade tem 3 fotos da WorldSkills 2026 (Xangai), tiradas do [Flickr oficial da WorldSkills](https://www.flickr.com/photos/worldskills/collections/72157725408624379/) (`FOTOS` em `dados.js`). Elas passam em carrossel só na revelação do resultado, no tempo do story: se o aluno segura para pausar, o carrossel também para. As fotos têm licença CC BY-NC-ND 4.0 (uso não comercial, com crédito e sem alterar a imagem), por isso aparecem com o crédito e o link do álbum e são carregadas direto do Flickr, sem cópia no repositório. Sem internet, as fotos somem sem quebrar a tela. Tecnologia em Design Industrial usa o álbum de "Industrial Design Technology".
 
 Cada modalidade em `dados.js` tem os campos `midia` e `depoimento`, hoje vazios (`null`). Sem eles, o resultado mostra um botão para buscar vídeos da prova no YouTube.
 
@@ -61,7 +64,7 @@ O código do vídeo é o que vem depois de `v=` no link do YouTube.
 
 ## Card para o story
 
-O card não tem link, porque o jogo e a inscrição são internos da escola. No lugar do endereço, ele traz "E você? Descubra a sua" e "Faça o SkillMatch no SENAI Roberto Simonsen".
+O card não tem link, porque o jogo e a inscrição são internos da escola. No lugar do endereço, ele traz "E você? Descubra a sua" e "Faça o SkillMatch no SENAI Roberto Simonsen". No alto, o card traz o símbolo do Team 1.01 à esquerda e o brasão do SENAI Roberto Simonsen à direita.
 
 ## Teste com alunos (validação)
 

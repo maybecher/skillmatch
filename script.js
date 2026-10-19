@@ -16,6 +16,8 @@ const TEMAS = [
 ];
 const MODO_TESTE = new URLSearchParams(location.search).has("teste");
 const REG_KEY = "skillmatch:registros";
+/* Quantas opções cada pergunta de múltipla escolha mostra, e quantos duelos entram por jogo. */
+const OPCOES_POR_PERGUNTA = 8, DUELOS_POR_JOGO = 8;
 const app = document.getElementById("app");
 const reduzMovimento = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -30,31 +32,66 @@ function embaralhar(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) {
 function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 function novoId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
-/* As perguntas de 8 opções ficam na ordem do arquivo; os duelos entram intercalados a partir da 2ª. */
+/* Monta as perguntas de um jogo. Há mais modalidades do que opções por pergunta, então cada pergunta
+   mostra as modalidades que apareceram menos até ali (empates sorteados). Assim todas aparecem
+   praticamente o mesmo número de vezes. Os duelos são sorteados do banco pelo mesmo critério.
+   As perguntas ficam na ordem do arquivo; os duelos entram intercalados a partir da 2ª. */
 function montarItens() {
-  const duelos = embaralhar(DUELOS);
+  const vezes = Object.fromEntries(KEYS.map(k => [k, 0]));
+  const menosVistas = (ks, n) => embaralhar(ks).sort((a, b) => vezes[a] - vezes[b]).slice(0, n);
+  const marcar = ks => ks.forEach(k => vezes[k]++);
+
+  const banco = embaralhar(DUELOS), duelos = [];
+  while (duelos.length < Math.min(DUELOS_POR_JOGO, banco.length)) {
+    const peso = d => Object.keys(d.o).reduce((s, k) => s + vezes[k], 0);
+    banco.sort((a, b) => peso(a) - peso(b));
+    const d = banco.shift();
+    duelos.push(d); marcar(Object.keys(d.o));
+  }
+  const multipla = PERGUNTAS.map(p => {
+    const ks = menosVistas(Object.keys(p.o), OPCOES_POR_PERGUNTA);
+    marcar(ks);
+    return { id: p.id, ordem: embaralhar(ks) };
+  });
+
   const seq = [];
-  PERGUNTAS.forEach((p, j) => { seq.push(p.id); if (j >= 1 && duelos.length) seq.push(duelos.shift().id); });
-  duelos.forEach(d => seq.push(d.id));
-  return seq.map(id => ({ id, ordem: embaralhar(Object.keys(ITENS[id].o)) }));
+  multipla.forEach((it, j) => { seq.push(it); if (j >= 1 && duelos.length) { const d = duelos.shift(); seq.push({ id: d.id, ordem: embaralhar(Object.keys(d.o)) }); } });
+  duelos.forEach(d => seq.push({ id: d.id, ordem: embaralhar(Object.keys(d.o)) }));
+  return seq;
 }
 
 function novoJogo(tela = "inicio", perfil = {}) {
   return { tela, nome: perfil.nome || "", nasc: perfil.nasc || null, expectativa: perfil.expectativa || "",
-    i: 0, respostas: [], tempos: [], itens: montarItens(), desempate: null, desempateOrdem: null,
+    i: 0, respostas: [], tempos: [], itens: montarItens(), sorteio: embaralhar(KEYS), desempate: null, desempateOrdem: null,
     pausaVista: false, slide: 0, id: novoId(), registrado: false, feedback: null };
 }
 
+/* Afinidade = das vezes em que a modalidade apareceu como opção, quantas o aluno escolheu.
+   Contar as oportunidades evita que uma modalidade ganhe só por ter aparecido mais. */
 function calcular(comDesempate = true) {
-  const pts = Object.fromEntries(KEYS.map(k => [k, 0]));
-  state.respostas.forEach(k => { if (k in pts) pts[k]++; });
+  const pts = Object.fromEntries(KEYS.map(k => [k, 0])), vezes = { ...pts };
+  state.itens.forEach((it, j) => {
+    const resp = state.respostas[j];
+    if (!resp) return;
+    it.ordem.forEach(k => { if (k in vezes) vezes[k]++; });
+    if (resp in pts) pts[resp]++;
+  });
   const d = comDesempate ? state.desempate : null;
-  if (d in pts) pts[d]++;
-  const total = Object.values(pts).reduce((a, b) => a + b, 0) || 1;
-  return KEYS.map(k => ({ k, pts: pts[k], pct: Math.round(100 * pts[k] / total) }))
-    .sort((a, b) => b.pts - a.pts || (b.k === d) - (a.k === d));
+  if (d in pts && state.desempateOrdem) { state.desempateOrdem.forEach(k => vezes[k]++); pts[d]++; }
+  const r = KEYS.map(k => ({ k, pts: pts[k], vezes: vezes[k], taxa: vezes[k] ? pts[k] / vezes[k] : 0 }))
+    .map(x => ({ ...x, pct: Math.round(100 * x.taxa) }))
+    // Empate exato: vale a ordem sorteada no início do jogo, para nenhuma modalidade levar vantagem pela posição na lista.
+    .sort((a, b) => b.taxa - a.taxa || b.pts - a.pts || state.sorteio.indexOf(a.k) - state.sorteio.indexOf(b.k));
+  // A escolha do desempate decide quem fica em 1º entre as duas que empataram.
+  if (d && r[1]?.k === d && state.desempateOrdem?.includes(r[0].k)) [r[0], r[1]] = [r[1], r[0]];
+  return r;
 }
-function precisaDesempate() { const r = calcular(false); return r[0].pts - r[1].pts <= 1; }
+/* Pede desempate quando as duas primeiras ficam a no máximo uma resposta de distância. */
+function precisaDesempate() {
+  const [a, b] = calcular(false);
+  const umaResposta = 1 / Math.max(1, (a.vezes + b.vezes) / 2);
+  return a.taxa - b.taxa <= umaResposta + 1e-9;
+}
 
 function idadeNoEvento() { return state.nasc ? CONFIG.anoEvento - state.nasc : null; }
 function elegivel(k) {
@@ -753,7 +790,8 @@ async function desenharCard(r) {
       new Promise(res => setTimeout(res, 2500))
     ]);
   } catch (e) { /* usa fontes do sistema */ }
-  const [simbolo, padronagem] = await Promise.all([carregarImagem(MARCA.simbolo), carregarImagem(MARCA.padronagem)]).catch(() => [null, null]);
+  const [simbolo, padronagem, brasao] = await Promise.all([MARCA.simbolo, MARCA.padronagem, MARCA.brasao]
+    .map(src => src ? carregarImagem(src).catch(() => null) : null));
 
   const m = MODALIDADES[r[0].k], nome = primeiroNome();
   const W = 1080, H = 1920, c = document.createElement("canvas");
@@ -775,13 +813,19 @@ async function desenharCard(r) {
     for (let px = -40; px < W; px += pw) x.drawImage(padronagem, px, H - ph, pw, ph);
     x.globalAlpha = 1;
   }
-  estrela(x, 930, 300, 50, OURO);
-  estrela(x, 1000, 430, 28, "#d7111a");
-  estrela(x, 860, 450, 20, "#d7111a");
+  estrela(x, 960, 1490, 46, OURO);
+  estrela(x, 1010, 1600, 26, "#d7111a");
+  estrela(x, 890, 1610, 18, "#d7111a");
 
   const M = 90, LW = W - 2 * M;
   x.textBaseline = "alphabetic";
-  if (simbolo) x.drawImage(simbolo, M, 200, 100, 100 * simbolo.height / simbolo.width);
+  // Topo: símbolo do Team 1.01 à esquerda e brasão do SENAI Roberto Simonsen à direita, na mesma altura.
+  const hSimbolo = simbolo ? 100 * simbolo.height / simbolo.width : 0;
+  if (simbolo) x.drawImage(simbolo, M, 200, 100, hSimbolo);
+  if (brasao) {
+    const bw = 300, bh = bw * brasao.height / brasao.width;
+    x.drawImage(brasao, W - M - bw, 200 + (hSimbolo - bh) / 2, bw, bh);
+  }
 
   let y = 420;
   fonte(x, 700, 30, SANS); espaco(x, 5); x.fillStyle = OURO;
