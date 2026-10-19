@@ -45,7 +45,7 @@ O aluno pode se inscrever em mais de uma modalidade. No fim do jogo, aparece o c
 
 ## Fotos, vídeos e depoimentos
 
-Cada modalidade já tem uma foto oficial da prova, tirada do catálogo de modalidades da WorldSkills (`FOTOS` em `dados.js`). Ela aparece só na revelação do resultado, com crédito e link para a página da modalidade. A imagem é carregada direto do site da WorldSkills, sem cópia no repositório; sem internet, o espaço da foto some. Design de Produtos usa a foto de "Industrial Design Technology", que é o nome atual dessa modalidade na WorldSkills.
+Cada modalidade tem 3 fotos da WorldSkills 2026 (Xangai), tiradas do [Flickr oficial da WorldSkills](https://www.flickr.com/photos/worldskills/collections/72157725408624379/) (`FOTOS` em `dados.js`). Elas passam em carrossel só na revelação do resultado, no tempo do story: se o aluno segura para pausar, o carrossel também para. As fotos têm licença CC BY-NC-ND 4.0 (uso não comercial, com crédito e sem alterar a imagem), por isso aparecem com o crédito e o link do álbum e são carregadas direto do Flickr, sem cópia no repositório. Sem internet, as fotos somem sem quebrar a tela. Design de Produtos usa o álbum de "Industrial Design Technology", o nome atual dessa modalidade na WorldSkills.
 
 Cada modalidade em `dados.js` tem os campos `midia` e `depoimento`, hoje vazios (`null`). Sem eles, o resultado mostra um botão para buscar vídeos da prova no YouTube.
 
@@ -61,7 +61,7 @@ O código do vídeo é o que vem depois de `v=` no link do YouTube.
 
 ## Card para o story
 
-O card mostra o endereço definido em `jogoUrl`. Se ele estiver vazio, mostra o endereço da página ou, quando o jogo é aberto como arquivo, "Faça o jogo vocacional na escola". Defina `jogoUrl` assim que o jogo estiver publicado.
+O card não tem link, porque o jogo e a inscrição são internos da escola. No lugar do endereço, ele traz "E você? Descubra a sua" e "Faça o SkillMatch no SENAI Roberto Simonsen".
 
 ## Teste com alunos (validação)
 

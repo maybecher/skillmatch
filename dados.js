@@ -18,9 +18,6 @@ const CONFIG = {
     campoModalidade: ""   // ex.: "entry.987654321" (o texto enviado é o nome da modalidade)
   },
 
-  // Endereço público do jogo, impresso no card de story. "" = usa o endereço atual da página.
-  jogoUrl: "",
-
   // URL do Apps Script que registra os resultados numa planilha (veja apps-script.gs).
   // "" = os resultados ficam guardados só neste aparelho (útil num totem/computador da escola).
   registroUrl: ""
@@ -74,18 +71,21 @@ const MODALIDADES = {
     midia: null, depoimento: null }
 };
 
-/* Foto oficial de cada modalidade no site da WorldSkills (worldskills.org/skills), mostrada só no resultado.
-   "img" é o endereço base da imagem: o jogo usa a versão _medium (640 px) e a original (2000 px) em telas de alta densidade.
-   "pagina" é a página da modalidade na WorldSkills, usada no crédito da foto. */
+/* Fotos da WorldSkills 2026 (Xangai), do Flickr oficial da WorldSkills:
+   https://www.flickr.com/photos/worldskills/collections/72157725408624379/
+   Licença CC BY-NC-ND 4.0: uso não comercial, com crédito e sem alterar a imagem.
+   Cada modalidade tem 3 fotos, que passam em carrossel só na revelação do resultado.
+   Cada foto é [id, código]: o endereço vira live.staticflickr.com/65535/{id}_{código}_c.jpg (800 px) ou _b.jpg (1024 px).
+   "album" é o álbum da modalidade no Flickr. */
 const FOTOS = {
-  game: { img: "https://images.worldskillsusercontent.org/wsf1/ws03/22271/wsf1039f50-c4df-4a0a-adc2-ddabb167fb6a", pagina: "https://worldskills.org/skills/id/483/" },
-  app:  { img: "https://images.worldskillsusercontent.org/wscd/ws12/31397/wscd12ee3f-ebc9-4081-9cdb-43e003a876ed", pagina: "https://worldskills.org/skills/id/562/" },
-  web:  { img: "https://images.worldskillsusercontent.org/ws72/wsdb/22266/ws72dbd2f9-281e-41cf-9349-77bee08d63cd", pagina: "https://worldskills.org/skills/id/127/" },
-  ctrl: { img: "https://images.worldskillsusercontent.org/ws2a/ws62/22253/ws2a6208f2-620a-4768-a731-e66bebe13ecd", pagina: "https://worldskills.org/skills/id/146/" },
-  elet: { img: "https://images.worldskillsusercontent.org/wsdd/wsdf/22251/wsdddfcfce-c92b-4e69-9fab-d7f8a1648c41", pagina: "https://worldskills.org/skills/id/145/" },
-  mec:  { img: "https://images.worldskillsusercontent.org/ws73/ws47/22259/ws7347bac4-92a1-4692-b74e-c4f46e74f414", pagina: "https://worldskills.org/skills/id/216/" },
-  i40:  { img: "https://images.worldskillsusercontent.org/ws6c/ws62/31395/ws6c6210f5-034d-4148-93fb-817648a4797f", pagina: "https://worldskills.org/skills/id/786/" },
-  prod: { img: "https://images.worldskillsusercontent.org/ws82/wsd4/32881/ws82d4cda6-59f3-4e1b-a19b-32a9931c25db", pagina: "https://worldskills.org/skills/id/557/" } // Industrial Design Technology
+  game: { album: "72177720335744216", fotos: [["55547878104", "77c8d2bfec"], ["55547878514", "c6aff0a47a"], ["55546973957", "05fa20cb79"]] },
+  app:  { album: "72177720335738215", fotos: [["55546355412", "b32acb8922"], ["55547381286", "651d0769aa"], ["55547762930", "2f7974f012"]] },
+  web:  { album: "72177720335755038", fotos: [["55547476336", "6655d5edc4"], ["55546449412", "a241a8767c"], ["55547857980", "e9780656ee"]] },
+  ctrl: { album: "72177720335738687", fotos: [["55547765591", "e4384601e1"], ["55548144375", "76348b455d"], ["55548143920", "54a8ca7e7e"]] },
+  elet: { album: "72177720335738662", fotos: [["55547757996", "489f49084d"], ["55547757821", "92ea1b7e77"], ["55546728742", "18b4bfbd28"]] },
+  mec:  { album: "72177720335738562", fotos: [["55545939654", "2405154124"], ["55544743972", "ac799d89dc"], ["55544742717", "4d6e15c6cf"]] },
+  i40:  { album: "72177720335767629", fotos: [["55544752712", "6cb3d4f6d3"], ["55544753042", "a358147ec9"], ["55546166030", "6d2bb98d85"]] },
+  prod: { album: "72177720335738892", fotos: [["55546259687", "7cf33aae7f"], ["55547287201", "3611260510"], ["55547454014", "3117482069"]] } // Industrial Design Technology
 };
 
 /* Perguntas de 8 opções: uma resposta para cada modalidade, embaralhadas na tela.

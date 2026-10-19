@@ -457,7 +457,8 @@ function slidesResultado(r) {
         <span class="pc">${j === 0 ? "" : x.pct + "%"}</span></li>`;
     }).join("")}</ol>` });
 
-  slides.push({ id: "revela", dur: FOTOS[r[0].k] ? 9500 : 7500, tema: 0, seed: 63, classe: "revelacao", corpo: `
+  const nFotos = FOTOS[r[0].k]?.fotos.length || 0;
+  slides.push({ id: "revela", dur: nFotos ? Math.round((CARROSSEL.inicio + nFotos * CARROSSEL.porFoto) * 1000) : 7500, tema: 0, seed: 63, classe: "revelacao", corpo: `
     <p class="medio sobe" style="--d:.1s">E a sua modalidade nº 1 é…</p>
     <div class="revela">
       <span class="kicker">Ocupação ${top.codigo}</span>
@@ -487,18 +488,34 @@ function slidesResultado(r) {
 }
 
 /* Foto oficial da WorldSkills; se não carregar (sem internet), o bloco some sem deixar buraco. */
+/* Carrossel com as 3 fotos da modalidade, no tempo do story: a primeira aparece logo depois da revelação
+   e as outras entram em sequência até o fim do slide. A troca é feita por animações CSS, então pausar o story
+   (segurar o dedo) também pausa o carrossel. Sem internet, a foto que não carregar é retirada. */
+const CARROSSEL = { inicio: 2.4, porFoto: 2.7 };
+function urlFoto([id, codigo], tam) { return `https://live.staticflickr.com/65535/${id}_${codigo}_${tam}.jpg`; }
 function fotoModalidade(k) {
   const f = FOTOS[k];
-  if (!f) return "";
+  if (!f || !f.fotos.length) return "";
+  const nome = esc(MODALIDADES[k].nome), { inicio, porFoto } = CARROSSEL;
+  const imgs = f.fotos.map((foto, j) => `
+      <img src="${urlFoto(foto, "c")}" srcset="${urlFoto(foto, "c")} 800w, ${urlFoto(foto, "b")} 1024w" sizes="(max-width: 460px) 92vw, 420px"
+        style="--t:${(inicio + j * porFoto).toFixed(1)}s" alt="Foto ${j + 1} de ${f.fotos.length}: competidor na prova de ${nome} na WorldSkills 2026" onerror="fotoFalhou(this)">`).join("");
+  const pontos = f.fotos.map((_, j) => `<i style="--t:${(inicio + j * porFoto).toFixed(1)}s;--p:${porFoto}s"></i>`).join("");
   return `<figure class="foto-ws">
-    <img src="${f.img}_medium" srcset="${f.img}_medium 640w, ${f.img} 2000w" sizes="(max-width: 460px) 92vw, 420px"
-      alt="Competidor na prova de ${esc(MODALIDADES[k].nome)} na WorldSkills" onerror="this.closest('figure').remove()">
-    <figcaption>Foto: <a href="${f.pagina}" target="_blank" rel="noopener">WorldSkills</a></figcaption>
+    <div class="carrossel">${imgs}</div>
+    <figcaption><span class="pontos" aria-hidden="true">${pontos}</span>
+      <span>Fotos: <a href="https://www.flickr.com/photos/worldskills/albums/${f.album}/" target="_blank" rel="noopener">WorldSkills</a> · CC BY-NC-ND 4.0</span></figcaption>
   </figure>`;
 }
+function fotoFalhou(img) {
+  const fig = img.closest("figure");
+  img.remove();
+  if (fig && !fig.querySelector(".carrossel img")) fig.remove();
+}
+/* Carrega as fotos enquanto o aluno ainda vê os primeiros slides do resultado. */
 function precarregarFoto(k) {
   const f = FOTOS[k];
-  if (f && precarregarFoto.k !== k) { precarregarFoto.k = k; new Image().src = f.img + "_medium"; }
+  if (f && precarregarFoto.k !== k) { precarregarFoto.k = k; f.fotos.forEach(foto => { new Image().src = urlFoto(foto, "c"); }); }
 }
 
 function slideIdade(r) {
@@ -664,11 +681,6 @@ function confete() {
 }
 
 /* ---------- Card para story (1080×1920) ---------- */
-function urlJogo() {
-  if (CONFIG.jogoUrl) return CONFIG.jogoUrl;
-  return location.protocol.startsWith("http") ? location.origin + location.pathname.replace(/index\.html$/, "") : "";
-}
-
 let cardBlob = null, cardUrl = null;
 async function prepararCard(r) {
   try {
@@ -811,13 +823,13 @@ async function desenharCard(r) {
     const pc = it.pct + "%"; x.fillText(pc, W - M - x.measureText(pc).width, y);
   });
 
+  // Sem link: o jogo e a inscrição são internos da escola, então o card só convida a fazer o teste lá.
   let yb = Math.min(Math.max(y + 110, 1540), 1580);
   ajustar(x, "E você? Descubra a sua", LW, 800, 56, 34, SANS);
   x.fillStyle = "#ffffff"; x.fillText("E você? Descubra a sua", M, yb);
-  const url = urlJogo().replace(/^https?:\/\//, "").replace(/\/$/, "");
   yb += 60;
-  if (url) { ajustar(x, url, LW, 600, 38, 22, SANS); x.fillStyle = OURO; x.fillText(url, M, yb); }
-  else { fonte(x, 400, 40, SERIF); x.fillStyle = OURO; x.fillText("Faça o jogo vocacional na escola", M, yb); }
+  const convite = `Faça o SkillMatch no ${CONFIG.escola.replace(/^Escola /, "")}`;
+  ajustar(x, convite, LW, 400, 40, 26, SERIF); x.fillStyle = OURO; x.fillText(convite, M, yb);
 
   return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("toBlob")), "image/png"));
 }
