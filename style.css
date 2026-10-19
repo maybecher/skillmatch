@@ -1,31 +1,20 @@
 body { margin: 0; }
 [hidden] { display: none !important; }
-/* Layout: ficha de competição — coluna única estreita, cabeçalho tipo crachá, módulos A–L como etapas de prova */
+/* Painel da coordenação, na identidade do Team 1.01 (azul-marinho + dourado, Montserrat e Inria Serif) */
 :root {
-  --paper: #f6f2f8;
-  --card: #ffffff;
-  --ink: #24102f;
-  --muted: #6b5a78;
-  --line: #e2d9e9;
-  --accent: #4a0d66;
-  --accent-ink: #ffffff;
-  --accent-soft: #efe5f4;
-  --signal: #d51067;
-  --ws-blue: #0084ad;
-  --f-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
-  --f-body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --paper: #1a0826; --card: #261134; --ink: #f4eef8; --muted: #b9a6c8; --line: #3d2251;
-    --accent: #72d0eb; --accent-ink: #1a0826; --accent-soft: #2f1846; --signal: #ff6c0c; --ws-blue: #8ae2d1;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --paper: #1a0826; --card: #261134; --ink: #f4eef8; --muted: #b9a6c8; --line: #3d2251;
-    --accent: #72d0eb; --accent-ink: #1a0826; --accent-soft: #2f1846; --signal: #ff6c0c; --ws-blue: #8ae2d1;
+  --paper: #070e24;
+  --card: #101c40;
+  --ink: #f5f7fc;
+  --muted: #9fabce;
+  --line: rgba(255, 255, 255, 0.12);
+  --accent: #f3c94d;
+  --accent-ink: #070e24;
+  --accent-soft: #172851;
+  --signal: #f3c94d;
+  --ws-blue: #60a5fa;
+  --f-display: "Montserrat", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Montserrat", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "Montserrat", "Segoe UI", system-ui, sans-serif;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -38,8 +27,9 @@ body {
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: 28px 48px;
-  background-image: radial-gradient(var(--line) 1px, transparent 1px);
-  background-size: 22px 22px;
+  background-image: linear-gradient(135deg, rgba(7, 14, 36, 0.96), rgba(37, 99, 235, 0.85)), url("assets/bg-padronagem.webp");
+  background-size: cover, 900px auto;
+  background-attachment: fixed;
 }
 .wrap { max-width: 680px; margin: 0 auto; display: grid; gap: 20px; }
 
@@ -51,10 +41,10 @@ body {
 
 .panel {
   background-color: var(--card);
-  background-image: linear-gradient(90deg, #fee300 0 12.5%, #ff6c0c 12.5% 25%, #d51067 25% 37.5%, #4a0d66 37.5% 50%, #003764 50% 62.5%, #0084ad 62.5% 75%, #72d0eb 75% 87.5%, #8ae2d1 87.5%);
-  background-size: 100% 5px; background-repeat: no-repeat;
+  background-image: linear-gradient(135deg, #d4a017, #f3c94d);
+  background-size: 100% 4px; background-repeat: no-repeat;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 16px;
   padding: clamp(20px, 5vw, 36px);
   display: grid; gap: 22px;
   min-width: 0;

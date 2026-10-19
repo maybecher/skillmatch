@@ -4,13 +4,16 @@ Abra `index.html` no navegador para jogar. Todo o conteúdo editável está em `
 
 | Arquivo | Para que serve |
 |---|---|
-| `index.html`, `script.js`, `style.css` | O jogo |
+| `index.html`, `script.js`, `jogo.css` | O jogo, em formato de stories (estilo retrospectiva do Spotify) |
 | `dados.js` | Configurações, modalidades, perguntas e duelos |
-| `painel.html` | Painel da coordenação: quantos jogaram e quais modalidades saíram mais |
+| `marca.js`, `assets/` | Símbolo, brasão e padronagem do Team 1.01 (cópias leves das imagens do projeto team101) |
+| `painel.html`, `style.css` | Painel da coordenação: quantos jogaram e quais modalidades saíram mais |
 | `apps-script.gs` | Código que grava os resultados numa Planilha Google |
 | `perguntas-jogo-vocacional.xlsx` | Planilha original das perguntas. Ainda **não** tem os duelos novos |
 
 ## Como o jogo funciona
+
+O visual segue a identidade do site do Team 1.01: azul-marinho e dourado, fontes Montserrat e Inria Serif, o símbolo 1.01 e a padronagem em escada. Cada tela é um "story" com cor própria, e o resultado é uma sequência de slides que avançam sozinhos: ritmo de resposta, top 5, revelação da modalidade nº 1, perfil, idade, como é a prova e o resumo com o card. No resultado, toque à direita para avançar, à esquerda para voltar e segure para pausar.
 
 - O aluno informa o primeiro nome e o ano de nascimento. A lista de modalidades já mostra em quais ele está dentro da idade-limite.
 - São 12 perguntas de 8 opções e 8 duelos "isso ou aquilo", intercalados. Cada modalidade aparece em 2 duelos, então nenhuma leva vantagem.

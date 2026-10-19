@@ -1,8 +1,19 @@
-/* Lógica do jogo. Os textos, perguntas e configurações ficam em dados.js. */
+/* Lógica do jogo, em formato de stories. Os textos, perguntas e configurações ficam em dados.js. */
 
 const KEYS = Object.keys(MODALIDADES);
 const ITENS = Object.fromEntries([...PERGUNTAS, ...DUELOS.map(d => ({ ...d, duelo: true }))].map(p => [p.id, p]));
-const CORES = ["#fee300", "#ff6c0c", "#d51067", "#4a0d66", "#003764", "#0084ad", "#72d0eb", "#8ae2d1"];
+/* Identidade do Team 1.01: azul-marinho, azul vibrante, dourado e o vermelho das estrelas do símbolo. */
+const CORES = ["#d4a017", "#f3c94d", "#2563eb", "#60a5fa", "#d7111a", "#ffffff"];
+/* Cada tela usa um destes temas. "veu" é o degradê aplicado sobre a padronagem;
+   "base" é a cor sólida equivalente, usada para misturar fundos de botões. */
+const TEMAS = [
+  { nome: "noite", veu: "linear-gradient(135deg, rgba(7,14,36,.95), rgba(37,99,235,.88))", base: "#0d1c4f", fg: "#ffffff", ac: "#f3c94d", acInk: "#070e24", cta: "ouro" },
+  { nome: "ouro", veu: "linear-gradient(135deg, rgba(212,160,23,.96), rgba(243,201,77,.95))", base: "#e0b232", fg: "#070e24", ac: "#1d4fc4", acInk: "#ffffff", cta: "noite" },
+  { nome: "azul", veu: "linear-gradient(160deg, rgba(37,99,235,.93), rgba(23,40,81,.96))", base: "#1e4bb8", fg: "#ffffff", ac: "#f3c94d", acInk: "#070e24", cta: "ouro" },
+  { nome: "profundo", veu: "linear-gradient(180deg, rgba(16,28,64,.95), rgba(7,14,36,.98))", base: "#0c1633", fg: "#ffffff", ac: "#f3c94d", acInk: "#070e24", cta: "ouro" },
+  { nome: "claro", veu: "linear-gradient(160deg, rgba(245,247,252,.96), rgba(219,230,252,.95))", base: "#eef2fb", fg: "#070e24", ac: "#2563eb", acInk: "#ffffff", cta: "azul" },
+  { nome: "rubi", veu: "linear-gradient(135deg, rgba(7,14,36,.95), rgba(215,17,26,.82))", base: "#3a1230", fg: "#ffffff", ac: "#f3c94d", acInk: "#070e24", cta: "ouro" }
+];
 const MODO_TESTE = new URLSearchParams(location.search).has("teste");
 const REG_KEY = "skillmatch:registros";
 const app = document.getElementById("app");
@@ -30,8 +41,8 @@ function montarItens() {
 
 function novoJogo(tela = "inicio", perfil = {}) {
   return { tela, nome: perfil.nome || "", nasc: perfil.nasc || null, expectativa: perfil.expectativa || "",
-    i: 0, respostas: [], itens: montarItens(), desempate: null, desempateOrdem: null,
-    id: novoId(), registrado: false, feedback: null };
+    i: 0, respostas: [], tempos: [], itens: montarItens(), desempate: null, desempateOrdem: null,
+    pausaVista: false, slide: 0, id: novoId(), registrado: false, feedback: null };
 }
 
 function calcular(comDesempate = true) {
@@ -51,6 +62,7 @@ function elegivel(k) {
   return idade == null || max == null ? null : idade <= max;
 }
 function primeiroNome() { return state.nome.trim(); }
+function virgulaNome(antes = "") { return primeiroNome() ? `${antes}, ${esc(primeiroNome())}` : antes; }
 
 /* ---------- Sons (Web Audio, sem arquivos) ---------- */
 const Som = {
@@ -72,19 +84,10 @@ const Som = {
     } catch (e) { /* sem áudio */ }
   },
   escolha() { this.tocar([[660, 0, 0.08], [990, 0.05, 0.1]]); },
+  passar() { this.tocar([[440, 0, 0.06, 0.04], [880, 0.03, 0.08, 0.03]]); },
   tique() { this.tocar([[1200, 0, 0.03, 0.03, "square"]]); },
-  revelar() { this.tocar([[523, 0, 0.18], [659, 0.1, 0.18], [784, 0.2, 0.2], [1047, 0.32, 0.5, 0.09]]); }
+  revelar() { this.tocar([[523, 0, 0.18], [659, 0.1, 0.18], [784, 0.2, 0.2], [1047, 0.32, 0.6, 0.09]]); }
 };
-function atualizarBotaoSom() {
-  const b = document.getElementById("som");
-  if (!b) return;
-  b.textContent = Som.ligado ? "Som: ligado" : "Som: desligado";
-  b.setAttribute("aria-pressed", String(Som.ligado));
-}
-document.getElementById("som")?.addEventListener("click", () => {
-  Som.ligado = !Som.ligado; LS.set("skillmatch:som", Som.ligado); atualizarBotaoSom(); Som.escolha();
-});
-atualizarBotaoSom();
 
 /* ---------- Registro de resultados ---------- */
 function registrar(dado) {
@@ -111,151 +114,406 @@ function registrarResultado(r) {
   });
 }
 
-/* ---------- Telas ---------- */
-let timerRevela = null;
+/* ---------- Formas decorativas (estrelas e losangos do símbolo, brilhos suaves) ---------- */
+const ANIMS = ["flutua", "gira", "deriva"];
+/* Só cantos e bordas, longe do texto: o conteúdo fica livre no centro. */
+const CANTOS = ["top:9%;right:-5%", "top:24%;right:-9%", "bottom:13%;right:-6%", "bottom:15%;left:-7%", "top:46%;left:-10%"];
+function formas(seed) {
+  let s = (seed * 7919 + 17) % 233280;
+  const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+  const brilhos = [0, 1].map(j => `<i class="brilho" style="${j ? "bottom:-18%;left:-30%" : "top:-16%;right:-30%"};--d:${j * 0.2}s"></i>`).join("");
+  const cantos = CANTOS.slice().sort(() => rnd() - 0.5).slice(0, 3);
+  const pecas = cantos.map((pos, j) => {
+    const tipo = j === 0 ? "estrela" : rnd() < 0.5 ? "estrela" : "losango";
+    const tam = Math.round((tipo === "estrela" ? 46 : 60) + rnd() * 50);
+    const cor = j === 2 ? "#d7111a" : "var(--ac)";
+    return `<i class="forma f-${tipo} a-${ANIMS[Math.floor(rnd() * ANIMS.length)]}" style="${pos};--t:${tam}px;--c:${cor};--d:${(0.15 + j * 0.1).toFixed(2)}s;--v:${(4 + rnd() * 4).toFixed(1)}s"></i>`;
+  }).join("");
+  return brilhos + pecas + `<i class="faixa"></i>`;
+}
+
+/* ---------- Montagem das telas ---------- */
+let timers = [];
+function depois(ms, fn) { const t = setTimeout(fn, ms); timers.push(t); return t; }
+function limparTimers() { timers.forEach(clearTimeout); timers = []; clearTimeout(Auto.timer); Auto.timer = null; }
+
 function render() {
-  clearTimeout(timerRevela);
-  if (state.tela === "inicio") return telaInicio();
-  if (state.tela === "quiz") return telaPergunta();
-  if (state.tela === "desempate") return telaDesempate();
-  if (state.tela === "revelando") return telaRevelando();
-  return telaResultado();
-}
-
-function linhaModalidade(k) {
-  const m = MODALIDADES[k], e = elegivel(k);
-  const st = e === null ? "" : e ? `<b class="st ok">✓ pode</b>` : `<b class="st fora">✕ fora da idade</b>`;
-  return `<li class="${e === false ? "fora" : ""}"><span class="code">${m.codigo}</span><span>${esc(m.nome)}</span><span class="age">${esc(m.idade)}${st}</span></li>`;
-}
-function resumoIdade() {
-  const idade = idadeNoEvento();
-  if (idade == null) return `<b>A idade-limite é eliminatória.</b> Informe o ano em que você nasceu para ver em quais modalidades pode competir.`;
-  const ok = KEYS.filter(k => elegivel(k) === true).length, conf = KEYS.filter(k => elegivel(k) === null).length;
-  if (!ok) return `<b>Em ${CONFIG.anoEvento} você terá ${idade} anos</b> e passa da idade-limite das modalidades com limite definido. Fale com a coordenação antes de se inscrever.`;
-  return `<b>Em ${CONFIG.anoEvento} você terá ${idade} anos.</b> Você está dentro da idade em ${ok} das ${KEYS.length} modalidades${conf ? ` (${conf} sem limite confirmado: pergunte à coordenação)` : ""}.`;
-}
-
-function telaInicio() {
-  const anos = []; for (let a = CONFIG.anoEvento - 12; a >= CONFIG.anoEvento - 26; a--) anos.push(a);
-  const nItens = state.itens.length;
+  limparTimers();
+  const tela = TELAS[state.tela] || TELAS.inicio;
+  const v = tela();
+  const t = TEMAS[v.tema % TEMAS.length];
+  [["--veu", t.veu], ["--base", t.base], ["--fg", t.fg], ["--ac", t.ac], ["--ac-ink", t.acInk]].forEach(([k, val]) => app.style.setProperty(k, val));
+  document.documentElement.style.setProperty("--brilho", t.base);
+  app.className = `story tema-${t.nome} cta-${t.cta}` + (v.classe ? " " + v.classe : "");
   app.innerHTML = `
-    <form class="fade" id="perfil" style="display:grid;gap:22px">
-      <h1>Qual é a sua <em>modalidade</em>?</h1>
-      <p class="lead">${nItens} perguntas rápidas sobre o seu jeito de ser. Não precisa saber nada técnico: escolha a resposta que mais combina com você. No fim você descobre com qual das ${KEYS.length} modalidades da seletiva você tem mais afinidade.</p>
-      <div class="campos">
-        <label class="campo"><span>Seu primeiro nome</span>
-          <input id="nome" name="nome" maxlength="24" autocomplete="given-name" placeholder="Ex.: Maria" value="${esc(state.nome)}"></label>
-        <label class="campo"><span>Ano em que você nasceu</span>
-          <select id="nasc" name="nasc"><option value="">Selecione</option>${anos.map(a => `<option ${state.nasc === a ? "selected" : ""}>${a}</option>`).join("")}</select></label>
-        ${MODO_TESTE ? `<label class="campo largo"><span>Modo teste · Qual modalidade você acha que combina mais com você?</span>
-          <select id="expectativa"><option value="">Não sei</option>${KEYS.map(k => `<option value="${k}" ${state.expectativa === k ? "selected" : ""}>${esc(MODALIDADES[k].nome)}</option>`).join("")}</select></label>` : ""}
-      </div>
-      <p class="aviso-idade" id="resumoIdade">${resumoIdade()}</p>
-      <ul class="skills" id="lista">${KEYS.map(linhaModalidade).join("")}</ul>
-      <div class="row"><button class="btn" type="submit">Começar o desafio</button><span class="note">Cerca de 5 minutos</span></div>
-    </form>`;
-  const nasc = document.getElementById("nasc");
-  nasc.onchange = () => {
-    state.nasc = nasc.value ? Number(nasc.value) : null;
-    document.getElementById("lista").innerHTML = KEYS.map(linhaModalidade).join("");
-    document.getElementById("resumoIdade").innerHTML = resumoIdade();
-  };
-  document.getElementById("perfil").onsubmit = ev => {
-    ev.preventDefault();
-    const nome = document.getElementById("nome").value.trim().split(/\s+/)[0] || "";
-    const perfil = { nome: nome && nome[0].toUpperCase() + nome.slice(1), nasc: state.nasc,
-      expectativa: document.getElementById("expectativa")?.value || "" };
-    state = novoJogo("quiz", perfil);
-    Som.escolha();
-    render();
-  };
+    ${v.barras || ""}
+    <header class="topo">
+      <span class="marca"><img src="assets/simbolo.png" alt="" width="20" height="26">Team 1.01 · SkillMatch</span>
+      <span class="topo-acoes">
+        ${v.pausavel ? `<button class="icone" id="pausa" type="button" aria-label="Pausar">❚❚</button>` : ""}
+        <button class="icone" id="som" type="button" aria-pressed="${Som.ligado}" aria-label="Som">${Som.ligado ? "♪" : "♪̸"}</button>
+      </span>
+    </header>
+    <div class="formas" aria-hidden="true">${formas(v.seed ?? v.tema)}</div>
+    <section class="conteudo" id="conteudo">${v.corpo}</section>
+    ${v.rodape ? `<footer class="rodape">${v.rodape}</footer>` : ""}`;
+  document.getElementById("som").onclick = () => { Som.ligado = !Som.ligado; LS.set("skillmatch:som", Som.ligado); render(); Som.escolha(); };
+  ajustarTitulos();
+  animarNumeros();
+  v.ligar && v.ligar();
 }
 
-function telaPergunta() {
-  const n = state.itens.length, i = state.i, it = state.itens[i], p = ITENS[it.id];
-  const resta = n - i - 1;
-  app.innerHTML = `
-    <div class="modules" style="--n:${n}" aria-hidden="true">
-      ${state.itens.map((_, j) => `<span class="${j < i ? "done" : j === i ? "now" : ""}"></span>`).join("")}
-    </div>
-    <div class="slide" style="display:grid;gap:18px">
-      <div class="qmeta"><span>Pergunta <b>${i + 1}</b> de ${n}${p.duelo ? ` · <b class="tag">Isso ou aquilo</b>` : ""}</span><span>${resta === 0 ? "Última!" : "Faltam " + resta}</span></div>
-      <h2>${esc(p.q)}</h2>
-      ${opcoes(it.ordem, k => p.o[k], state.respostas[i], p.duelo)}
-      <div class="row" style="justify-content:space-between">
-        <button class="linkbtn" id="back" ${i === 0 ? "disabled" : ""}>← Voltar</button>
-        <span class="note">Dica: use as teclas 1–${it.ordem.length}</span>
-      </div>
-    </div>`;
-  ligarOpcoes();
-  document.getElementById("back").onclick = () => { if (state.i > 0) { state.i--; render(); } };
+/* Diminui a fonte dos títulos com palavras longas até caberem na largura. */
+function ajustarTitulos() {
+  app.querySelectorAll(".nome-mod, .grande").forEach(el => {
+    el.style.fontSize = "";
+    let tam = parseFloat(getComputedStyle(el).fontSize);
+    while (el.scrollWidth > el.clientWidth + 1 && tam > 20) { tam -= 2; el.style.fontSize = tam + "px"; }
+  });
 }
 
-function opcoes(ordem, texto, marcada, duelo) {
-  const botoes = ordem.map((k, j) => `<button class="opt${marcada === k ? " picked" : ""}" data-k="${k}"><span class="k">${j + 1}</span><span>${texto(k)}</span></button>`);
-  return duelo
-    ? `<div class="opts duel" role="group" aria-label="Opções">${botoes[0]}<span class="ou" aria-hidden="true">ou</span>${botoes[1]}</div>`
-    : `<div class="opts" role="group" aria-label="Opções">${botoes.join("")}</div>`;
+function barrasPerguntas() {
+  return `<div class="barras" aria-hidden="true">${state.itens.map((_, j) =>
+    `<span><i style="width:${j < state.i ? 100 : j === state.i ? 35 : 0}%"></i></span>`).join("")}</div>`;
 }
-function ligarOpcoes() { app.querySelectorAll(".opt").forEach(b => b.onclick = () => escolher(b.dataset.k)); }
+
+const TELAS = {
+  inicio() {
+    return {
+      tema: 0, seed: 1, classe: "intro",
+      corpo: `
+        <img class="logo-intro" src="assets/simbolo.png" alt="Team 1.01" width="84" height="111">
+        <p class="kicker sobe" style="--d:.3s">Seletiva interna · ${esc(CONFIG.evento)}</p>
+        <h1 class="mega"><span>Seu</span><span>Skill</span><span>Match</span></h1>
+        <p class="medio sobe" style="--d:.8s">${state.itens.length} perguntas sobre o seu jeito.<br>${KEYS.length} modalidades. Um match.</p>
+        <button class="cta sobe" style="--d:1s" id="go">Bora descobrir</button>
+        <p class="mini sobe" style="--d:1.2s">Jogo de orientação, não é prova. Não precisa saber nada técnico.</p>
+        <img class="brasao sobe" style="--d:1.4s" src="assets/brasao.png" alt="SENAI Roberto Simonsen" width="170" height="79">`,
+      ligar() { document.getElementById("go").onclick = () => { Som.passar(); state.tela = "nome"; render(); }; }
+    };
+  },
+
+  nome() {
+    return {
+      tema: 2, seed: 2,
+      corpo: `
+        <p class="kicker sobe">Antes de tudo</p>
+        <h2 class="grande sobe" style="--d:.1s">Como te chamam?</h2>
+        <form id="fNome" class="sobe" style="--d:.25s;display:grid;gap:18px">
+          <input class="entrada" id="nome" maxlength="24" autocomplete="given-name" placeholder="Seu primeiro nome" value="${esc(state.nome)}" aria-label="Seu primeiro nome">
+          <button class="cta" type="submit">Continuar</button>
+        </form>`,
+      rodape: `<button class="linkbtn" id="voltar">← Voltar</button><button class="linkbtn" id="pular">Pular</button>`,
+      ligar() {
+        const inp = document.getElementById("nome");
+        if (!matchMedia("(pointer: coarse)").matches) inp.focus();
+        document.getElementById("fNome").onsubmit = ev => {
+          ev.preventDefault();
+          const n = inp.value.trim().split(/\s+/)[0] || "";
+          state.nome = n && n[0].toUpperCase() + n.slice(1);
+          Som.passar(); state.tela = "idade"; render();
+        };
+        document.getElementById("pular").onclick = () => { state.nome = ""; state.tela = "idade"; render(); };
+        document.getElementById("voltar").onclick = () => { state.tela = "inicio"; render(); };
+      }
+    };
+  },
+
+  idade() {
+    const anos = []; for (let a = CONFIG.anoEvento - 12; a >= CONFIG.anoEvento - 26; a--) anos.push(a);
+    const idade = idadeNoEvento();
+    let reacao = "";
+    if (idade != null) {
+      const ok = KEYS.filter(k => elegivel(k) === true).length;
+      reacao = ok
+        ? `Em ${CONFIG.anoEvento} você terá <b>${idade} anos</b>. Dá pra competir em <b>${ok} das ${KEYS.length}</b> modalidades.`
+        : `Em ${CONFIG.anoEvento} você terá <b>${idade} anos</b>, acima do limite das modalidades. Fale com a coordenação.`;
+    }
+    return {
+      tema: 4, seed: 3,
+      corpo: `
+        <p class="kicker sobe">${primeiroNome() ? `Prazer, ${esc(primeiroNome())}!` : "Prazer!"}</p>
+        <h2 class="grande sobe" style="--d:.1s">Em que ano você nasceu?</h2>
+        <p class="medio sobe" style="--d:.2s">A idade-limite elimina na competição, então a gente já confere pra você.</p>
+        <div class="chips sobe" style="--d:.3s">${anos.map(a => `<button class="chip${state.nasc === a ? " on" : ""}" data-a="${a}">${a}</button>`).join("")}</div>
+        <p class="reacao" aria-live="polite">${reacao}</p>
+        <button class="cta" id="seguir" ${state.nasc ? "" : "hidden"}>Continuar</button>`,
+      rodape: `<button class="linkbtn" id="voltar">← Voltar</button><button class="linkbtn" id="pular">Prefiro não dizer</button>`,
+      ligar() {
+        document.querySelectorAll(".chip").forEach(b => b.onclick = () => { state.nasc = Number(b.dataset.a); Som.escolha(); render(); });
+        const seguir = () => { Som.passar(); state.tela = MODO_TESTE ? "teste" : "quiz"; marcarInicioQuiz(); render(); };
+        document.getElementById("seguir").onclick = seguir;
+        document.getElementById("pular").onclick = () => { state.nasc = null; seguir(); };
+        document.getElementById("voltar").onclick = () => { state.tela = "nome"; render(); };
+      }
+    };
+  },
+
+  teste() {
+    return {
+      tema: 3, seed: 4,
+      corpo: `
+        <p class="kicker sobe">Modo teste</p>
+        <h2 class="grande sobe" style="--d:.1s">Qual modalidade você acha que vai dar?</h2>
+        <div class="pills sobe" style="--d:.2s">${KEYS.map(k => `<button class="pill${state.expectativa === k ? " on" : ""}" data-k="${k}">${esc(MODALIDADES[k].nome)}</button>`).join("")}
+          <button class="pill" data-k="">Não sei</button></div>`,
+      rodape: `<button class="linkbtn" id="voltar">← Voltar</button>`,
+      ligar() {
+        document.querySelectorAll(".pill").forEach(b => b.onclick = () => { state.expectativa = b.dataset.k; Som.escolha(); state.tela = "quiz"; marcarInicioQuiz(); render(); });
+        document.getElementById("voltar").onclick = () => { state.tela = "idade"; render(); };
+      }
+    };
+  },
+
+  quiz() {
+    const n = state.itens.length, i = state.i, it = state.itens[i], p = ITENS[it.id], resta = n - i - 1;
+    state.t0 = performance.now();
+    const corpo = p.duelo
+      ? `<p class="kicker sobe">Isso ou aquilo · ${i + 1} de ${n}</p>
+         <h2 class="pergunta sobe" style="--d:.05s">${esc(p.q)}</h2>
+         ${duelo(it.ordem, k => esc(p.o[k]), state.respostas[i])}`
+      : `<p class="kicker sobe">Pergunta ${i + 1} de ${n}</p>
+         <h2 class="pergunta sobe" style="--d:.05s">${esc(p.q)}</h2>
+         <div class="opcoes" role="group" aria-label="Opções">${it.ordem.map((k, j) =>
+           `<button class="opcao sobe${state.respostas[i] === k ? " on" : ""}" style="--d:${(0.12 + j * 0.04).toFixed(2)}s" data-k="${k}"><span class="k">${j + 1}</span><span>${esc(p.o[k])}</span></button>`).join("")}</div>`;
+    return {
+      tema: [3, 1, 2, 4, 0, 5][i % 6], seed: 10 + i, barras: barrasPerguntas(),
+      corpo,
+      rodape: `<button class="linkbtn" id="voltar">← Voltar</button><span>${resta === 0 ? "Última!" : `Faltam ${resta}`}</span>`,
+      ligar() {
+        ligarEscolhas();
+        document.getElementById("voltar").onclick = () => {
+          if (state.i > 0) state.i--; else state.tela = MODO_TESTE ? "teste" : "idade";
+          render();
+        };
+      }
+    };
+  },
+
+  pausa() {
+    const lider = MODALIDADES[calcular(false)[0].k];
+    const traco = lider.tracos[0].toLowerCase();
+    return {
+      tema: 5, seed: 40, barras: barrasPerguntas(),
+      corpo: `
+        <p class="kicker sobe">Metade do caminho</p>
+        <h2 class="grande sobe" style="--d:.1s">Tá ficando interessante${virgulaNome()}.</h2>
+        <p class="medio sobe" style="--d:.4s">Até aqui, você respondeu como alguém com muito <mark>${esc(traco)}</mark>.</p>
+        <p class="medio sobe" style="--d:.8s">Mas ainda dá tempo de tudo mudar.</p>
+        <button class="cta sobe" style="--d:1.1s" id="seguir">Continuar</button>`,
+      ligar() { document.getElementById("seguir").onclick = () => { Som.passar(); state.tela = "quiz"; render(); }; }
+    };
+  },
+
+  desempate() {
+    const r = calcular(false);
+    if (!state.desempateOrdem) state.desempateOrdem = embaralhar([r[0].k, r[1].k]);
+    return {
+      tema: 1, seed: 50,
+      corpo: `
+        <p class="kicker sobe">Pergunta extra</p>
+        <h2 class="pergunta sobe" style="--d:.05s">Deu quase empate! Qual dessas provas você faria?</h2>
+        ${duelo(state.desempateOrdem, k => `<b>${esc(MODALIDADES[k].nome)}</b><small>${esc(MODALIDADES[k].texto)}</small>`, state.desempate)}`,
+      rodape: `<button class="linkbtn" id="voltar">← Voltar</button><span>Desempate</span>`,
+      ligar() {
+        ligarEscolhas();
+        document.getElementById("voltar").onclick = () => { state.tela = "quiz"; state.desempateOrdem = null; render(); };
+      }
+    };
+  },
+
+  wrapped() {
+    const r = calcular(), slides = slidesResultado(r);
+    state.slide = Math.min(state.slide, slides.length - 1);
+    const s = slides[state.slide];
+    registrarResultado(r);
+    return {
+      ...s, classe: "wrapped", pausavel: !!s.dur,
+      barras: `<div class="barras" aria-hidden="true">${slides.map((x, j) =>
+        `<span><i class="${j === state.slide && x.dur ? "enchendo" : ""}" style="width:${j < state.slide || (j === state.slide && !x.dur) ? 100 : 0}%;--dur:${x.dur || 0}ms"></i></span>`).join("")}</div>`,
+      rodape: s.rodape ?? `<span>Toque para avançar</span>`,
+      ligar() {
+        s.ligar && s.ligar();
+        const p = document.getElementById("pausa");
+        if (p) p.onclick = ev => { ev.stopPropagation(); Auto.pausado ? Auto.retomar() : Auto.pausar(); };
+        if (s.dur) Auto.iniciar(s.dur);
+      }
+    };
+  }
+};
+
+function marcarInicioQuiz() { state.i = 0; }
+
+function duelo(ordem, texto, marcada) {
+  return `<div class="duelo" role="group" aria-label="Opções">
+    <button class="lado lado-a sobe${marcada === ordem[0] ? " on" : ""}" style="--d:.15s" data-k="${ordem[0]}"><span class="k">1</span><span class="t">${texto(ordem[0])}</span></button>
+    <span class="vs sobe" style="--d:.25s" aria-hidden="true">ou</span>
+    <button class="lado lado-b sobe${marcada === ordem[1] ? " on" : ""}" style="--d:.3s" data-k="${ordem[1]}"><span class="k">2</span><span class="t">${texto(ordem[1])}</span></button>
+  </div>`;
+}
+function ligarEscolhas() { app.querySelectorAll("[data-k]").forEach(b => b.onclick = () => escolher(b.dataset.k)); }
 
 let travado = false;
 function escolher(k) {
   if (travado) return;
   travado = true;
   Som.escolha();
-  if (state.tela === "desempate") state.desempate = k; else state.respostas[state.i] = k;
-  app.querySelector(".opts")?.classList.add("has-pick");
-  app.querySelectorAll(".opt").forEach(b => b.classList.toggle("picked", b.dataset.k === k));
-  setTimeout(() => {
+  if (state.tela === "desempate") state.desempate = k;
+  else { state.respostas[state.i] = k; state.tempos[state.i] = performance.now() - (state.t0 || performance.now()); }
+  app.classList.add("escolheu");
+  app.querySelectorAll("[data-k]").forEach(b => b.classList.toggle("on", b.dataset.k === k));
+  depois(420, () => {
     travado = false;
-    if (state.tela === "desempate") state.tela = "revelando";
-    else if (state.i < state.itens.length - 1) state.i++;
+    app.classList.remove("escolheu");
+    const meio = Math.floor(state.itens.length / 2) - 1;
+    if (state.tela === "desempate") { state.tela = "wrapped"; state.slide = 0; }
+    else if (state.i < state.itens.length - 1) {
+      if (state.i === meio && !state.pausaVista) { state.pausaVista = true; state.i++; state.tela = "pausa"; }
+      else state.i++;
+    }
     else if (precisaDesempate()) { state.tela = "desempate"; state.desempate = null; }
-    else state.tela = "revelando";
+    else { state.tela = "wrapped"; state.slide = 0; }
     render();
-  }, 320);
+  });
 }
 
-function telaDesempate() {
-  const r = calcular(false);
-  if (!state.desempateOrdem) state.desempateOrdem = embaralhar([r[0].k, r[1].k]);
-  const ordem = state.desempateOrdem;
-  app.innerHTML = `
-    <div class="slide" style="display:grid;gap:18px">
-      <div class="qmeta"><span><b class="tag">Desempate</b></span><span>Pergunta extra</span></div>
-      <h2>Deu quase empate! Qual dessas duas provas você escolheria fazer?</h2>
-      ${opcoes(ordem, k => `<b class="opt-titulo">${esc(MODALIDADES[k].nome)}</b> ${esc(MODALIDADES[k].texto)}`, state.desempate, true)}
-      <div class="row" style="justify-content:space-between">
-        <button class="linkbtn" id="back">← Voltar</button>
-        <span class="note">Dica: use as teclas 1–2</span>
-      </div>
+/* ---------- Sequência do resultado (estilo retrospectiva) ---------- */
+const Auto = {
+  timer: null, inicio: 0, restante: 0, pausado: false,
+  iniciar(ms) { this.restante = ms; this.pausado = false; this.retomar(); },
+  retomar() {
+    this.pausado = false; app.classList.remove("pausado");
+    this.inicio = Date.now();
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => irSlide(1), this.restante);
+    const b = document.getElementById("pausa"); if (b) { b.textContent = "❚❚"; b.setAttribute("aria-label", "Pausar"); }
+  },
+  pausar() {
+    if (!this.timer) return;
+    clearTimeout(this.timer); this.timer = null;
+    this.restante -= Date.now() - this.inicio;
+    this.pausado = true; app.classList.add("pausado");
+    const b = document.getElementById("pausa"); if (b) { b.textContent = "▶"; b.setAttribute("aria-label", "Continuar"); }
+  }
+};
+function irSlide(delta) {
+  if (state.tela !== "wrapped") return;
+  const total = slidesResultado(calcular()).length;
+  const novo = state.slide + delta;
+  if (novo < 0 || novo >= total) return;
+  state.slide = novo;
+  Som.passar();
+  render();
+}
+
+function formatarTempo(ms) {
+  const s = Math.round(ms / 1000), m = Math.floor(s / 60);
+  return m ? `${m} min ${String(s % 60).padStart(2, "0")} s` : `${s} s`;
+}
+
+function slidesResultado(r) {
+  const top = MODALIDADES[r[0].k], n = state.itens.length;
+  const slides = [];
+
+  slides.push({ id: "intro", dur: 4200, tema: 3, seed: 60, corpo: `
+    <p class="kicker sobe">Seu resultado</p>
+    <h2 class="grande sobe" style="--d:.15s">Pronto${virgulaNome()}.</h2>
+    <p class="medio sobe" style="--d:.7s">Suas ${n} respostas foram cruzadas com as ${KEYS.length} modalidades da seletiva.</p>
+    <p class="medio sobe" style="--d:1.4s">Vamos ver o que elas dizem sobre você.</p>` });
+
+  const tempos = state.tempos.filter(t => t > 0);
+  if (tempos.length >= n - 1) {
+    const total = tempos.reduce((a, b) => a + b, 0);
+    let jr = 0; state.tempos.forEach((t, j) => { if (t > 0 && t < state.tempos[jr]) jr = j; });
+    const it = state.itens[jr], p = ITENS[it.id], resp = p.o[state.respostas[jr]];
+    slides.push({ id: "ritmo", dur: 6500, tema: 1, seed: 61, corpo: `
+      <p class="kicker sobe">Seu ritmo</p>
+      <p class="medio sobe" style="--d:.1s">Você respondeu tudo em</p>
+      <p class="numero sobe" style="--d:.2s">${formatarTempo(total)}</p>
+      <p class="medio sobe" style="--d:1.2s">Sua decisão mais rápida levou <b>${(state.tempos[jr] / 1000).toFixed(1).replace(".", ",")} s</b>:</p>
+      <p class="mini sobe" style="--d:1.5s">${esc(p.q)}</p>
+      <blockquote class="citacao sobe" style="--d:1.8s">“${esc(resp)}”</blockquote>
+      <p class="medio sobe" style="--d:2.6s">Sem pensar duas vezes.</p>` });
+  }
+
+  slides.push({ id: "top5", dur: 7000, tema: 2, seed: 62, corpo: `
+    <p class="kicker sobe">Seu top 5</p>
+    <h2 class="grande sobe" style="--d:.1s">Suas modalidades com mais afinidade</h2>
+    <ol class="top">${r.slice(0, 5).map((x, j) => {
+      const atraso = j === 0 ? 2.9 : 0.5 + (4 - j) * 0.5;
+      return `<li class="entra${j === 0 ? " misterio" : ""}" style="--d:${atraso}s">
+        <span class="pos">${j + 1}</span>
+        <span class="nm">${j === 0 ? "? ? ?" : esc(MODALIDADES[x.k].nome)}</span>
+        <span class="pc">${j === 0 ? "" : x.pct + "%"}</span></li>`;
+    }).join("")}</ol>` });
+
+  slides.push({ id: "revela", dur: 7500, tema: 0, seed: 63, classe: "revelacao", corpo: `
+    <p class="medio sobe" style="--d:.1s">E a sua modalidade nº 1 é…</p>
+    <div class="revela">
+      <span class="kicker">Ocupação ${top.codigo}</span>
+      <h2 class="nome-mod">${esc(top.nome)}</h2>
+      <p class="pct-grande"><span data-conta="${r[0].pct}">0</span>% de afinidade</p>
+    </div>`,
+    ligar() {
+      if (reduzMovimento()) { Som.revelar(); return; }
+      [0, 1, 2, 3, 4, 5, 6].forEach(j => depois(300 + j * 170, () => Som.tique()));
+      depois(1650, () => { Som.revelar(); confete(); animarNumeros(true); });
+    } });
+
+  slides.push({ id: "perfil", dur: 7000, tema: 5, seed: 64, corpo: `
+    <p class="kicker sobe">Seu jeito em 3 palavras</p>
+    <ul class="palavras">${top.tracos.map((t, j) => `<li class="entra" style="--d:${0.3 + j * 0.45}s">${esc(t)}</li>`).join("")}</ul>
+    <p class="medio sobe" style="--d:1.8s">${esc(top.texto)}</p>` });
+
+  slides.push({ id: "idade", dur: 7000, tema: 4, seed: 65, corpo: slideIdade(r) });
+
+  slides.push({ id: "prova", dur: top.midia ? 0 : 8000, tema: 2, seed: 66, corpo: slideProva(top) });
+
+  slides.push({ id: "resumo", dur: 0, tema: 3, seed: 67, classe: "resumo", rodape: `<button class="linkbtn" id="rever">↺ Ver de novo</button><button class="linkbtn" id="again">Jogar de novo</button>`, corpo: slideResumo(r),
+    ligar() { ligarResumo(r); } });
+
+  return slides;
+}
+
+function slideIdade(r) {
+  const k = r[0].k, m = MODALIDADES[k], idade = idadeNoEvento(), e = elegivel(k);
+  if (idade == null || e === null) return `
+    <p class="kicker sobe">Idade-limite</p>
+    <p class="numero sobe" style="--d:.15s">${esc(m.idade)}</p>
+    <p class="medio sobe" style="--d:.6s">${idade == null ? "É critério eliminatório na competição: confira antes de se inscrever." : `Em ${CONFIG.anoEvento} você terá ${idade} anos.`}</p>`;
+  if (e) return `
+    <p class="kicker sobe">Idade-limite</p>
+    <p class="numero sobe" style="--d:.15s"><span data-conta="${idade}">0</span> anos</p>
+    <p class="medio sobe" style="--d:.6s">é a idade que você terá em ${CONFIG.anoEvento}. O limite de ${esc(m.nome)} é ${esc(m.idade.replace(/ em \d+$/, ""))}.</p>
+    <p class="selo sobe" style="--d:1.1s">✓ Você pode competir</p>`;
+  const alt = r.find(x => elegivel(x.k) === true);
+  return `
+    <p class="kicker sobe">Atenção à idade</p>
+    <p class="numero sobe" style="--d:.15s"><span data-conta="${idade}">0</span> anos</p>
+    <p class="medio sobe" style="--d:.6s">é a idade que você terá em ${CONFIG.anoEvento}. O limite de ${esc(m.nome)} é ${esc(m.idade.replace(/ em \d+$/, ""))}, e isso elimina na competição.</p>
+    ${alt ? `<p class="medio sobe" style="--d:1.2s">Dentro da sua idade, o seu melhor match é <mark>${esc(MODALIDADES[alt.k].nome)}</mark> (${alt.pct}%).</p>`
+      : `<p class="medio sobe" style="--d:1.2s">Fale com a coordenação para ver as opções.</p>`}`;
+}
+
+function slideProva(m) {
+  const md = m.midia;
+  let midia = "";
+  if (md && md.tipo === "youtube") midia = `<div class="video"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(md.id)}" title="${esc(md.legenda || "Prova de " + m.nome)}" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe></div>`;
+  else if (md && md.tipo === "imagem") midia = `<img class="foto" src="${esc(md.src)}" alt="${esc(md.legenda || "Prova de " + m.nome)}" loading="lazy">`;
+  const dp = m.depoimento;
+  const busca = "https://www.youtube.com/results?search_query=" + encodeURIComponent("WorldSkills " + m.en);
+  return `
+    <p class="kicker sobe">Como é a prova</p>
+    <h2 class="grande sobe" style="--d:.1s">${esc(m.nome)} na prática</h2>
+    ${midia ? `<div class="sobe" style="--d:.3s">${midia}</div>` : ""}
+    ${dp ? `<blockquote class="depo sobe" style="--d:.5s">${dp.foto ? `<img src="${esc(dp.foto)}" alt="">` : ""}<div><p>“${esc(dp.texto)}”</p><footer><b>${esc(dp.nome)}</b>${dp.info ? " · " + esc(dp.info) : ""}</footer></div></blockquote>` : ""}
+    <div class="acoes sobe" style="--d:.7s">
+      <a class="botao" href="${busca}" target="_blank" rel="noopener">▶ Ver vídeos da prova</a>
+      <a class="botao" href="${m.link}" target="_blank" rel="noopener">Padrão da WorldSkills</a>
     </div>`;
-  ligarOpcoes();
-  document.getElementById("back").onclick = () => { state.tela = "quiz"; state.desempateOrdem = null; render(); };
 }
 
-function telaRevelando() {
-  const nomes = embaralhar(KEYS).map(k => MODALIDADES[k].nome);
-  app.innerHTML = `
-    <div class="revelando" role="status">
-      <span class="qmeta"><span>${primeiroNome() ? esc(primeiroNome()) + ", calculando" : "Calculando"} o seu perfil…</span></span>
-      <div class="roleta"><span id="roleta">${esc(nomes[0])}</span></div>
-      <div class="modules" style="--n:8" aria-hidden="true">${CORES.map(c => `<span style="background:${c};border-color:transparent"></span>`).join("")}</div>
-    </div>`;
-  const el = document.getElementById("roleta");
-  const passos = reduzMovimento() ? 1 : 14;
-  let j = 0;
-  const girar = () => {
-    j++;
-    if (j >= passos) { state.tela = "resultado"; render(); return; }
-    el.textContent = nomes[j % nomes.length];
-    Som.tique();
-    timerRevela = setTimeout(girar, 60 + j * j * 4);
-  };
-  timerRevela = setTimeout(girar, 200);
-}
-
+/* ---------- Resumo final ---------- */
 function linkInscricao(m) {
   const p = CONFIG.formPrefill;
   if (!p || !p.url) return CONFIG.formUrl;
@@ -267,138 +525,94 @@ function linkInscricao(m) {
     return u.toString();
   } catch (e) { return CONFIG.formUrl; }
 }
-
-function blocoIdade(r) {
-  const top = r[0].k, idade = idadeNoEvento(), e = elegivel(top), m = MODALIDADES[top];
-  if (e === null) {
-    return idade == null
-      ? `<div class="alerta info"><b>Idade-limite: ${esc(m.idade)}.</b> É critério eliminatório: confira antes de se inscrever.</div>`
-      : `<div class="alerta info"><b>Idade-limite: ${esc(m.idade)}.</b> Em ${CONFIG.anoEvento} você terá ${idade} anos.</div>`;
-  }
-  if (e) return `<div class="alerta ok"><b>✓ Você está dentro da idade.</b> Em ${CONFIG.anoEvento} você terá ${idade} anos, e o limite é ${esc(m.idade)}.</div>`;
-  const alt = r.find(x => elegivel(x.k) === true);
-  return `<div class="alerta fora"><b>Atenção: em ${CONFIG.anoEvento} você terá ${idade} anos e o limite desta modalidade é ${esc(m.idade)}.</b>
-    A idade é critério eliminatório, então você não poderia competir nela.
-    ${alt ? `A modalidade dentro da sua idade que mais combina com você é <b>${esc(MODALIDADES[alt.k].nome)}</b> (${alt.pct}%).` : "Fale com a coordenação para ver as opções."}</div>`;
-}
 function modalidadeInscricao(r) {
   if (elegivel(r[0].k) !== false) return r[0].k;
   return (r.find(x => elegivel(x.k) === true) || r[0]).k;
 }
 
-function blocoProva(m) {
-  const md = m.midia;
-  let midia = "";
-  if (md && md.tipo === "youtube") midia = `<div class="video"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(md.id)}" title="${esc(md.legenda || "Prova de " + m.nome)}" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe></div>`;
-  else if (md && md.tipo === "imagem") midia = `<img class="foto" src="${esc(md.src)}" alt="${esc(md.legenda || "Prova de " + m.nome)}" loading="lazy">`;
-  if (midia && md.legenda) midia = `<figure>${midia}<figcaption class="note">${esc(md.legenda)}</figcaption></figure>`;
-  const dp = m.depoimento;
-  const depo = dp ? `
-    <blockquote class="depo">
-      ${dp.foto ? `<img src="${esc(dp.foto)}" alt="" loading="lazy">` : ""}
-      <div><p>“${esc(dp.texto)}”</p><footer><b>${esc(dp.nome)}</b>${dp.info ? " · " + esc(dp.info) : ""}</footer></div>
-    </blockquote>` : "";
-  const busca = "https://www.youtube.com/results?search_query=" + encodeURIComponent("WorldSkills " + m.en);
+function slideResumo(r) {
+  const mInsc = MODALIDADES[modalidadeInscricao(r)];
   return `
-    <section style="display:grid;gap:12px">
-      <h3>Como é a prova na prática</h3>
-      ${midia}${depo}
-      <div class="row">
-        <a class="btn ghost small" href="${busca}" target="_blank" rel="noopener">Ver vídeos da prova</a>
-        <a class="btn ghost small" href="${m.link}" target="_blank" rel="noopener">Padrão da WorldSkills</a>
+    <p class="kicker sobe">Seu SkillMatch</p>
+    <div class="resumo-grid">
+      <div class="card-prev sobe" style="--d:.1s"><img id="cardPrev" alt="Seu card para o story"></div>
+      <div class="resumo-acoes sobe" style="--d:.25s">
+        <button class="cta" id="shareCard" disabled>Postar no story</button>
+        <button class="botao" id="baixarCard" disabled>Baixar imagem</button>
+        <a class="cta cta-2" href="${esc(linkInscricao(mInsc))}" target="_blank" rel="noopener">Fazer minha inscrição</a>
+        <p class="mini">${CONFIG.formPrefill?.url ? `Já vai com ${esc(mInsc.nome)} preenchida.` : `Na inscrição, escolha ${esc(mInsc.nome)}.`}</p>
       </div>
-    </section>`;
+    </div>
+    <details class="todas sobe" style="--d:.4s"><summary>Ver afinidade com todas as modalidades</summary>
+      <ol>${r.map(x => `<li><span>${esc(MODALIDADES[x.k].nome)}${elegivel(x.k) === false ? " <em>(fora da idade)</em>" : ""}</span><b>${x.pct}%</b></li>`).join("")}</ol>
+    </details>
+    <div class="feedback sobe" style="--d:.5s" id="feedback">${blocoFeedback()}</div>
+    <p class="toast" id="toast" role="status"></p>`;
 }
-
-function telaResultado() {
-  const r = calcular(), top = MODALIDADES[r[0].k], seg = MODALIDADES[r[1].k];
-  const nome = primeiroNome(), mInsc = MODALIDADES[modalidadeInscricao(r)];
-  const primeiraVez = !state.registrado;
-  registrarResultado(r);
-  app.innerHTML = `
-    <div class="fade" style="display:grid;gap:22px">
-      <div class="qmeta"><span>Resultado final</span><span>${CONFIG.evento}</span></div>
-      <p class="saudacao">${nome ? `<b>${esc(nome)}</b>, sua` : "Sua"} modalidade é…</p>
-      <div class="winner${primeiraVez ? " pop" : ""}">
-        <span class="code">Ocupação ${top.codigo}</span>
-        <h2>${esc(top.nome)}</h2>
-        <span class="pct">${r[0].pct}% de afinidade</span>
-        <p>${esc(top.texto)}</p>
-        <div class="traits">${top.tracos.map(t => `<span>${esc(t)}</span>`).join("")}</div>
-      </div>
-      ${blocoIdade(r)}
-      <div class="row">
-        <a class="btn" href="${esc(linkInscricao(mInsc))}" target="_blank" rel="noopener">Fazer minha inscrição</a>
-        <span class="note">${CONFIG.formPrefill?.url ? `Já vai com ${esc(mInsc.nome)} preenchida.` : `Na inscrição, escolha ${esc(mInsc.nome)}.`}</span>
-      </div>
-
-      <section class="story">
-        <div class="story-prev"><img id="cardPrev" alt="Prévia do card para o story"></div>
-        <div style="display:grid;gap:10px;align-content:center">
-          <h3>Poste no seu story</h3>
-          <p class="note">Mostre sua modalidade e desafie os colegas a descobrir a deles.</p>
-          <div class="row">
-            <button class="btn small" id="shareCard" disabled>Compartilhar</button>
-            <button class="btn ghost small" id="baixarCard" disabled>Baixar imagem</button>
-          </div>
-        </div>
-      </section>
-
-      ${blocoProva(top)}
-
-      <div class="facts">
-        <div class="fact destaque"><small>Idade-limite</small><span>${esc(top.idade)}</span></div>
-        <div class="fact"><small>Segunda opção</small><span>${esc(seg.nome)} · ${r[1].pct}%</span></div>
-      </div>
-      <div style="display:grid;gap:12px">
-        <h3>Sua afinidade com cada modalidade</h3>
-        <div class="bars">
-          ${r.map((x, idx) => { const m = MODALIDADES[x.k], e = elegivel(x.k); return `
-            <div class="bar ${idx === 0 ? "top" : idx === 1 ? "second" : ""}">
-              <span class="name"><span class="code">${m.codigo}</span><span>${esc(m.nome)}</span>${e === false ? `<span class="st fora">fora da idade</span>` : ""}</span>
-              <span class="val">${x.pct}%</span>
-              <span class="track"><span class="fill" data-w="${x.pct}"></span></span>
-            </div>`; }).join("")}
-        </div>
-      </div>
-
-      <section class="feedback" id="feedback">${blocoFeedback()}</section>
-
-      <div class="row">
-        <button class="btn ghost" id="share">Copiar resultado</button>
-        <button class="btn ghost" id="again">Jogar de novo</button>
-      </div>
-      <div class="toast" id="toast" role="status"></div>
-    </div>`;
-  requestAnimationFrame(() => app.querySelectorAll(".fill").forEach(f => f.style.width = f.dataset.w + "%"));
-  if (primeiraVez) { Som.revelar(); confete(); }
-  ligarFeedback();
-  prepararCard(r);
-  document.getElementById("again").onclick = () => { state = novoJogo("inicio", { nome: state.nome, nasc: state.nasc }); render(); window.scrollTo(0, 0); };
-  document.getElementById("share").onclick = () => {
-    const txt = `${nome ? nome + " aqui: f" : "F"}iz o jogo vocacional da ${CONFIG.evento} e minha modalidade é ${top.nome}. Faça o seu também: ${urlJogo()}`;
-    const t = document.getElementById("toast");
-    const ok = () => t.textContent = "Resultado copiado.";
-    const fallback = () => { t.textContent = txt; const s = getSelection(), rg = document.createRange(); rg.selectNodeContents(t); s.removeAllRanges(); s.addRange(rg); };
-    try { navigator.clipboard.writeText(txt).then(ok, fallback); } catch (e) { fallback(); }
-  };
-}
-
 function blocoFeedback() {
-  if (state.feedback) return `<p class="note">Obrigado! Sua resposta ajuda a coordenação a melhorar o jogo.</p>`;
-  return `<h3>Esse resultado combina com você?</h3>
-    <div class="row">
-      <button class="btn ghost small" data-fb="sim">Sim, tem tudo a ver</button>
-      <button class="btn ghost small" data-fb="mais_ou_menos">Mais ou menos</button>
-      <button class="btn ghost small" data-fb="nao">Não combina</button>
+  if (state.feedback) return `<p class="mini">Valeu! Sua resposta ajuda a melhorar o jogo.</p>`;
+  return `<p class="mini">Esse resultado combina com você?</p>
+    <div class="acoes">
+      <button class="botao" data-fb="sim">Tem tudo a ver</button>
+      <button class="botao" data-fb="mais_ou_menos">Mais ou menos</button>
+      <button class="botao" data-fb="nao">Não combina</button>
     </div>`;
 }
-function ligarFeedback() {
+function ligarResumo(r) {
   document.querySelectorAll("[data-fb]").forEach(b => b.onclick = () => {
     state.feedback = b.dataset.fb;
     registrar({ id: state.id, feedback: state.feedback });
     Som.escolha();
     document.getElementById("feedback").innerHTML = blocoFeedback();
+  });
+  document.getElementById("rever").onclick = () => { state.slide = 0; render(); };
+  document.getElementById("again").onclick = () => { state = novoJogo("inicio", { nome: state.nome, nasc: state.nasc }); render(); };
+  prepararCard(r);
+}
+
+/* ---------- Toques: avançar, voltar e segurar para pausar ---------- */
+let segurando = null, segurou = false;
+app.addEventListener("pointerdown", ev => {
+  if (state.tela !== "wrapped" || ev.target.closest("a,button,input,details,iframe,.video,.depo")) return;
+  segurou = false;
+  segurando = setTimeout(() => { segurou = true; Auto.pausar(); }, 220);
+});
+app.addEventListener("pointerup", ev => {
+  if (state.tela !== "wrapped" || ev.target.closest("a,button,input,details,iframe,.video,.depo")) return;
+  clearTimeout(segurando);
+  if (segurou) { segurou = false; Auto.retomar(); return; }
+  const x = ev.clientX - app.getBoundingClientRect().left;
+  irSlide(x < app.clientWidth * 0.3 ? -1 : 1);
+});
+app.addEventListener("pointercancel", () => { clearTimeout(segurando); if (segurou) { segurou = false; Auto.retomar(); } });
+
+document.addEventListener("keydown", e => {
+  if (state.tela === "wrapped") {
+    if (e.key === "ArrowRight") irSlide(1);
+    else if (e.key === "ArrowLeft") irSlide(-1);
+    else if (e.key === " " && !e.target.closest("button,a")) { e.preventDefault(); Auto.pausado ? Auto.retomar() : Auto.pausar(); }
+    return;
+  }
+  if (state.tela !== "quiz" && state.tela !== "desempate") return;
+  if (e.target.closest("input")) return;
+  const n = parseInt(e.key, 10);
+  const ordem = state.tela === "quiz" ? state.itens[state.i].ordem : state.desempateOrdem;
+  if (ordem && n >= 1 && n <= ordem.length) escolher(ordem[n - 1]);
+});
+
+/* ---------- Efeitos ---------- */
+function animarNumeros(agora = false) {
+  app.querySelectorAll("[data-conta]").forEach(el => {
+    const alvo = Number(el.dataset.conta);
+    if (reduzMovimento()) { el.textContent = alvo; return; }
+    if (el.closest(".revela") && !agora) return;
+    const t0 = performance.now(), dur = 900;
+    const passo = t => {
+      const p = Math.min(1, (t - t0) / dur);
+      el.textContent = Math.round(alvo * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) requestAnimationFrame(passo);
+    };
+    requestAnimationFrame(passo);
   });
 }
 
@@ -406,13 +620,13 @@ function confete() {
   if (reduzMovimento()) return;
   const box = document.createElement("div");
   box.className = "confete"; box.setAttribute("aria-hidden", "true");
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < 80; i++) {
     const s = document.createElement("i");
-    s.style.cssText = `left:${Math.random() * 100}%;background:${CORES[i % CORES.length]};animation-delay:${Math.random() * 0.5}s;animation-duration:${1.8 + Math.random() * 1.6}s;--dx:${(Math.random() - 0.5) * 220}px;--r:${(Math.random() - 0.5) * 1080}deg`;
+    s.style.cssText = `left:${Math.random() * 100}%;background:${CORES[i % CORES.length]};animation-delay:${Math.random() * 0.4}s;animation-duration:${1.8 + Math.random() * 1.6}s;--dx:${(Math.random() - 0.5) * 240}px;--r:${(Math.random() - 0.5) * 1080}deg`;
     box.appendChild(s);
   }
-  document.body.appendChild(box);
-  setTimeout(() => box.remove(), 4200);
+  app.appendChild(box);
+  depois(4200, () => box.remove());
 }
 
 /* ---------- Card para story (1080×1920) ---------- */
@@ -424,33 +638,35 @@ function urlJogo() {
 let cardBlob = null, cardUrl = null;
 async function prepararCard(r) {
   try {
-    const blob = await desenharCard(r);
-    if (!document.getElementById("cardPrev")) return;
-    cardBlob = blob;
-    if (cardUrl) URL.revokeObjectURL(cardUrl);
-    cardUrl = URL.createObjectURL(blob);
-    document.getElementById("cardPrev").src = cardUrl;
+    if (!cardBlob || prepararCard.id !== state.id) {
+      cardBlob = await desenharCard(r);
+      prepararCard.id = state.id;
+      if (cardUrl) URL.revokeObjectURL(cardUrl);
+      cardUrl = URL.createObjectURL(cardBlob);
+    }
+    const img = document.getElementById("cardPrev");
+    if (!img) return;
+    img.src = cardUrl;
     const share = document.getElementById("shareCard"), baixar = document.getElementById("baixarCard");
     share.disabled = baixar.disabled = false;
     share.onclick = compartilharCard;
     baixar.onclick = baixarCard;
   } catch (e) {
-    document.querySelector(".story")?.remove();
+    document.querySelector(".card-prev")?.remove();
   }
 }
 
-function arquivoCard() { return new File([cardBlob], "minha-modalidade.png", { type: "image/png" }); }
 async function compartilharCard() {
-  const f = arquivoCard();
+  const f = new File([cardBlob], "meu-skillmatch.png", { type: "image/png" });
   if (navigator.canShare && navigator.canShare({ files: [f] })) {
-    try { await navigator.share({ files: [f], title: "Minha modalidade" }); return; }
+    try { await navigator.share({ files: [f], title: "Meu SkillMatch" }); return; }
     catch (e) { if (e.name === "AbortError") return; }
   }
   baixarCard();
 }
 function baixarCard() {
   const a = document.createElement("a");
-  a.href = cardUrl; a.download = "minha-modalidade.png";
+  a.href = cardUrl; a.download = "meu-skillmatch.png";
   document.body.appendChild(a); a.click(); a.remove();
   const t = document.getElementById("toast");
   if (t) t.textContent = "Imagem salva. Abra o Instagram e poste no seu story.";
@@ -467,111 +683,112 @@ function fonte(x, peso, tam, familia, largo = false) {
   if ("fontStretch" in x) x.fontStretch = largo ? "semi-expanded" : "normal";
 }
 function espaco(x, px) { if ("letterSpacing" in x) x.letterSpacing = px + "px"; }
-function retangulo(x, X, Y, w, h, raio) {
-  x.beginPath();
-  if (x.roundRect) x.roundRect(X, Y, w, h, raio); else x.rect(X, Y, w, h);
+function ajustar(x, txt, max, peso, tam, min, familia, largo) {
+  fonte(x, peso, tam, familia, largo);
+  while (x.measureText(txt).width > max && tam > min) { tam -= 2; fonte(x, peso, tam, familia, largo); }
+  return tam;
 }
 
+function estrela(x, cx, cy, r, cor) {
+  x.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.42 : r;
+    x.lineTo(cx + rr * Math.cos(a), cy + rr * Math.sin(a));
+  }
+  x.closePath(); x.fillStyle = cor; x.fill();
+}
+function carregarImagem(src) { const img = new Image(); img.src = src; return img.decode().then(() => img); }
+
 async function desenharCard(r) {
-  const DISP = "Archivo, 'Arial Narrow', sans-serif", BODY = "'Public Sans', system-ui, sans-serif", MONO = "'IBM Plex Mono', monospace";
+  const SANS = "Montserrat, 'Segoe UI', sans-serif", SERIF = "'Inria Serif', Georgia, serif";
   try {
     await Promise.race([
-      Promise.all(["900 120px Archivo", "800 40px Archivo", "600 40px 'IBM Plex Mono'", "500 40px 'Public Sans'", "700 40px 'Public Sans'"].map(f => document.fonts.load(f))),
+      Promise.all(["800 120px Montserrat", "700 40px Montserrat", "600 40px Montserrat", "400 40px 'Inria Serif'", "italic 400 40px 'Inria Serif'"].map(f => document.fonts.load(f))),
       new Promise(res => setTimeout(res, 2500))
     ]);
   } catch (e) { /* usa fontes do sistema */ }
+  const [simbolo, padronagem] = await Promise.all([carregarImagem(MARCA.simbolo), carregarImagem(MARCA.padronagem)]).catch(() => [null, null]);
 
   const m = MODALIDADES[r[0].k], nome = primeiroNome();
   const W = 1080, H = 1920, c = document.createElement("canvas");
   c.width = W; c.height = H;
   const x = c.getContext("2d");
+  const OURO = "#f3c94d", AZUL_CLARO = "#60a5fa", TEXTO_2 = "#c9d3ee";
+  const ouro = (y0, y1) => { const g = x.createLinearGradient(0, y0, W, y1); g.addColorStop(0, "#d4a017"); g.addColorStop(1, "#f3c94d"); return g; };
 
+  // Fundo: o mesmo degradê azul do site do Team 1.01
   const g = x.createLinearGradient(0, 0, W, H);
-  g.addColorStop(0, "#3d0b57"); g.addColorStop(1, "#14051e");
+  g.addColorStop(0, "#070e24"); g.addColorStop(0.55, "#0f2a6e"); g.addColorStop(1, "#2563eb");
   x.fillStyle = g; x.fillRect(0, 0, W, H);
-  x.fillStyle = "rgba(255,255,255,.07)";
-  for (let yy = 22; yy < H; yy += 44) for (let xx = 22; xx < W; xx += 44) { x.beginPath(); x.arc(xx, yy, 2.4, 0, Math.PI * 2); x.fill(); }
-  CORES.forEach((cor, i) => { x.fillStyle = cor; x.fillRect(i * W / 8, 0, W / 8 + 1, 26); x.fillRect(i * W / 8, H - 26, W / 8 + 1, 26); });
-
-  const M = 100, LW = W - 2 * M;
-  x.textBaseline = "alphabetic";
-  let y = 300;
-
-  fonte(x, 600, 32, MONO); espaco(x, 5); x.fillStyle = "#72d0eb";
-  x.fillText(`SELETIVA INTERNA · ${CONFIG.evento.toUpperCase()}`, M, y);
-  espaco(x, 0);
-
-  y += 150;
-  if (nome) {
-    let t = 130; fonte(x, 900, t, DISP, true);
-    while (x.measureText(nome.toUpperCase() + ",").width > LW && t > 60) { t -= 6; fonte(x, 900, t, DISP, true); }
-    x.fillStyle = "#ffffff"; x.fillText(nome.toUpperCase() + ",", M, y);
-    y += 80;
-    fonte(x, 500, 56, BODY); x.fillStyle = "#e6d8ef"; x.fillText("minha modalidade é…", M, y);
-  } else {
-    fonte(x, 900, 84, DISP, true); x.fillStyle = "#ffffff"; x.fillText("MINHA MODALIDADE", M, y);
-    y += 80; fonte(x, 500, 56, BODY); x.fillStyle = "#e6d8ef"; x.fillText("na seletiva é…", M, y);
+  const brilho = x.createRadialGradient(900, 280, 0, 900, 280, 560);
+  brilho.addColorStop(0, "rgba(96,165,250,.32)"); brilho.addColorStop(1, "rgba(96,165,250,0)");
+  x.fillStyle = brilho; x.fillRect(0, 0, W, H);
+  if (padronagem) {
+    const ph = 220, pw = padronagem.width * ph / padronagem.height;
+    x.globalAlpha = 0.6;
+    for (let px = -40; px < W; px += pw) x.drawImage(padronagem, px, H - ph, pw, ph);
+    x.globalAlpha = 1;
   }
+  estrela(x, 930, 300, 50, OURO);
+  estrela(x, 1000, 430, 28, "#d7111a");
+  estrela(x, 860, 450, 20, "#d7111a");
 
-  // Cartão branco com a modalidade
-  const P = 60, CW = LW, IW = CW - 2 * P;
-  let tam = 124, linhas;
-  do { fonte(x, 900, tam, DISP, true); linhas = quebrar(x, m.nome.toUpperCase(), IW); tam -= 4; }
-  while ((linhas.length > 3 || linhas.some(l => x.measureText(l).width > IW)) && tam > 56);
-  tam += 4;
-  const lh = tam * 0.98;
-  fonte(x, 600, 34, BODY);
-  const chips = []; let cx = 0, cy = 0;
-  m.tracos.forEach(t => { const w = x.measureText(t).width + 56; if (cx && cx + w > IW) { cx = 0; cy += 76; } chips.push({ t, X: cx, Y: cy, w }); cx += w + 14; });
-  const alturaChips = cy + 60;
-  const CH = P + 40 + 40 + linhas.length * lh + 30 + 50 + 40 + alturaChips + P;
-  const top0 = y + 70;
+  const M = 90, LW = W - 2 * M;
+  x.textBaseline = "alphabetic";
+  if (simbolo) x.drawImage(simbolo, M, 200, 100, 100 * simbolo.height / simbolo.width);
 
-  x.save(); x.shadowColor = "rgba(0,0,0,.35)"; x.shadowBlur = 50; x.shadowOffsetY = 18;
-  x.fillStyle = "#ffffff"; retangulo(x, M, top0, CW, CH, 28); x.fill(); x.restore();
-  x.save(); retangulo(x, M, top0, CW, CH, 28); x.clip();
-  CORES.forEach((cor, i) => { x.fillStyle = cor; x.fillRect(M + i * CW / 8, top0, CW / 8 + 1, 14); });
-  x.restore();
+  let y = 420;
+  fonte(x, 700, 30, SANS); espaco(x, 5); x.fillStyle = OURO;
+  x.fillText(`MEU SKILLMATCH · ${CONFIG.evento.toUpperCase()}`, M, y); espaco(x, 0);
 
-  let yy = top0 + P + 40;
-  fonte(x, 600, 34, MONO); espaco(x, 3); x.fillStyle = "#d51067"; x.fillText(`OCUPAÇÃO ${m.codigo}`, M + P, yy); espaco(x, 0);
-  yy += 40;
-  fonte(x, 900, tam, DISP, true); x.fillStyle = "#24102f";
-  linhas.forEach(l => { yy += lh; x.fillText(l, M + P, yy - tam * 0.12); });
-  yy += 30 + 50;
-  fonte(x, 900, 46, DISP, true); espaco(x, 2); x.fillStyle = "#d51067"; x.fillText(`${r[0].pct}% DE AFINIDADE`, M + P, yy); espaco(x, 0);
-  yy += 40;
-  fonte(x, 600, 34, BODY);
-  chips.forEach(ch => {
-    const X = M + P + ch.X, Y = yy + ch.Y;
-    x.strokeStyle = "#4a0d66"; x.lineWidth = 3; retangulo(x, X, Y, ch.w, 60, 30); x.stroke();
-    x.fillStyle = "#4a0d66"; x.fillText(ch.t, X + 28, Y + 42);
+  if (nome) {
+    y += 120;
+    ajustar(x, nome, LW, 800, 112, 56, SANS);
+    x.fillStyle = "#ffffff"; x.fillText(nome + ",", M, y);
+  }
+  y += 72;
+  fonte(x, "italic 400", 48, SERIF); x.fillStyle = TEXTO_2; x.fillText("minha modalidade nº 1 é", M, y);
+
+  let tam = 112, linhas;
+  do { fonte(x, 800, tam, SANS); linhas = quebrar(x, m.nome.toUpperCase(), LW); tam -= 4; }
+  while ((linhas.length > 3 || linhas.some(l => x.measureText(l).width > LW)) && tam > 52);
+  tam += 4; fonte(x, 800, tam, SANS);
+  y += 20;
+  const yIni = y;
+  x.fillStyle = ouro(yIni, yIni + linhas.length * tam);
+  linhas.forEach(l => { y += tam * 0.98; x.fillText(l, M, y); });
+
+  y += 76;
+  fonte(x, 700, 46, SANS); x.fillStyle = AZUL_CLARO; x.fillText(`${r[0].pct}% de afinidade`, M, y);
+
+  y += 62;
+  fonte(x, 400, 36, SERIF); x.fillStyle = TEXTO_2;
+  quebrar(x, m.tracos.join(" · "), LW).forEach(l => { x.fillText(l, M, y); y += 46; });
+
+  y += 34;
+  fonte(x, 700, 28, SANS); espaco(x, 4); x.fillStyle = OURO; x.fillText("MEU TOP 3", M, y); espaco(x, 0);
+  r.slice(0, 3).forEach((it, j) => {
+    y += 74;
+    fonte(x, 800, 52, SANS); x.fillStyle = j === 0 ? OURO : "#ffffff"; x.fillText(String(j + 1), M, y);
+    const nm = MODALIDADES[it.k].nome;
+    ajustar(x, nm, LW - 210, 600, 40, 24, SANS); x.fillStyle = "#ffffff";
+    x.fillText(nm, M + 76, y);
+    fonte(x, 700, 36, SANS); x.fillStyle = AZUL_CLARO;
+    const pc = it.pct + "%"; x.fillText(pc, W - M - x.measureText(pc).width, y);
   });
 
-  // Chamada final
-  let yb = Math.max(top0 + CH + 150, 1440);
-  let tc = 58; fonte(x, 800, tc, DISP, true);
-  while (x.measureText("E VOCÊ? DESCUBRA A SUA").width > LW && tc > 36) { tc -= 2; fonte(x, 800, tc, DISP, true); }
-  x.fillStyle = "#ffffff"; x.fillText("E VOCÊ? DESCUBRA A SUA", M, yb);
+  let yb = Math.min(Math.max(y + 110, 1540), 1580);
+  ajustar(x, "E você? Descubra a sua", LW, 800, 56, 34, SANS);
+  x.fillStyle = "#ffffff"; x.fillText("E você? Descubra a sua", M, yb);
   const url = urlJogo().replace(/^https?:\/\//, "").replace(/\/$/, "");
-  yb += 68;
-  if (url) {
-    let t = 40; fonte(x, 600, t, MONO);
-    while (x.measureText(url).width > LW && t > 22) { t -= 2; fonte(x, 600, t, MONO); }
-    x.fillStyle = "#8ae2d1"; x.fillText(url, M, yb);
-  } else { fonte(x, 500, 44, BODY); x.fillStyle = "#8ae2d1"; x.fillText("Faça o jogo vocacional na escola", M, yb); }
-  fonte(x, 600, 28, MONO); espaco(x, 4); x.fillStyle = "#b9a6c8";
-  x.fillText(CONFIG.escola.toUpperCase(), M, Math.max(yb + 90, 1660)); espaco(x, 0);
+  yb += 60;
+  if (url) { ajustar(x, url, LW, 600, 38, 22, SANS); x.fillStyle = OURO; x.fillText(url, M, yb); }
+  else { fonte(x, 400, 40, SERIF); x.fillStyle = OURO; x.fillText("Faça o jogo vocacional na escola", M, yb); }
 
   return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("toBlob")), "image/png"));
 }
 
-/* ---------- Teclado e inicialização ---------- */
-document.addEventListener("keydown", e => {
-  if (state.tela !== "quiz" && state.tela !== "desempate") return;
-  const n = parseInt(e.key, 10);
-  const ordem = state.tela === "quiz" ? state.itens[state.i].ordem : state.desempateOrdem;
-  if (ordem && n >= 1 && n <= ordem.length) escolher(ordem[n - 1]);
-});
-
 render();
+/* As fontes chegam depois do primeiro desenho; quando chegam, os títulos são reajustados. */
+document.fonts?.ready.then(ajustarTitulos);
+addEventListener("resize", ajustarTitulos);
